@@ -1,0 +1,1 @@
+./travelMonitorClient -m 1 -b 1000 -c 1000 -s 10000 -i ./countries -t 1

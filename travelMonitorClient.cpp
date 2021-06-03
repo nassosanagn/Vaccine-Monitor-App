@@ -28,7 +28,7 @@ int numMonitors;
 string* paths;
 Info* monitorInfo;                      /* Info array with read file descriptor , write fd and monitor id */
 
-int bufferSize = 0;
+int socketBufferSize = 0;
 int sizeOfBloom = 0;
 string inputDir;
 
@@ -39,24 +39,33 @@ void handle_SIGCHLD_parent(int sig);
 
 int main(int argc, char *argv[]){
 
-    if (argc != 15){
+    if (argc != 13){
         perror("Invalid number of arguments");
         exit(1);
     }
+
+    int cyclicBufferSize = 0;
+    int numThreads = 0;
     
     for (int i = 1; i < argc; i = i + 2){           /* Get all the arguments */
 
         if (strcmp(argv[i],"-m") == 0)              /* Get the number of monitors */
             numMonitors = stoi(argv[i+1]);
         
-        else if (strcmp(argv[i],"-b") == 0)               /* Get the size of the buffer */
-            bufferSize = stoi(argv[i+1]);
+        else if (strcmp(argv[i],"-b") == 0)               /* Get the size of the socketBuffer */
+            socketBufferSize = stoi(argv[i+1]);
         
+        else if (strcmp(argv[i],"-c") == 0)                   /* Get the size of the CyclicBuffer */
+            cyclicBufferSize = stoi(argv[i+1]);
+
         else if (strcmp(argv[i],"-s") == 0)                   /* Get the size of the bloom */
             sizeOfBloom = stoi(argv[i+1]);
 
         else if (strcmp(argv[i],"-i") == 0)                   /* Get the input directory */
             inputDir = argv[i+1];
+        
+        else if (strcmp(argv[i],"-t") == 0)                   /* Get the number of Threads */
+            numThreads = stoi(argv[i+1]);
     
         else{
            perror("Error getting the arguments");
@@ -130,9 +139,9 @@ int main(int argc, char *argv[]){
         monitorInfo[i/2].writeFd = writefd;
         monitorInfo[i/2].readFd = readfd;
 
-        writeInt(bufferSize,writefd);
+        writeInt(socketBufferSize,writefd);
         writeInt(sizeOfBloom,writefd);     
-        writeString(inputDir.c_str(),bufferSize,writefd);
+        writeString(inputDir.c_str(),socketBufferSize,writefd);
     }     
 
     struct dirent *counter;
@@ -146,7 +155,7 @@ int main(int argc, char *argv[]){
         string directory = counter->d_name;
         const char * directoryToSend = directory.c_str();
 
-        writeString(directoryToSend, bufferSize, monitorInfo[countCountries].writeFd);        /* Send directory (countryName) to monitor */
+        writeString(directoryToSend, socketBufferSize, monitorInfo[countCountries].writeFd);        /* Send directory (countryName) to monitor */
 
         /* Create the list with the countries */
         if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
@@ -202,8 +211,8 @@ int main(int argc, char *argv[]){
 
                 for (int j = 0; j < numOfViruses; j++){                                         /* How many bloom filters to read */
 
-                    string virusNameStr = readString(monitorInfo[i].readFd, bufferSize);        /* Get the virus name */
-                    tempBloom = readBloom(monitorInfo[i].readFd, bufferSize,sizeOfBloom);
+                    string virusNameStr = readString(monitorInfo[i].readFd, socketBufferSize);        /* Get the virus name */
+                    tempBloom = readBloom(monitorInfo[i].readFd, socketBufferSize,sizeOfBloom);
 
                     /* Create the list with the bloom filters */
                     if (!(BloomListSearch(bloomListHead, virusNameStr)))                        /* If virusName is not already in the list => add it (in the beginning) */
@@ -229,7 +238,7 @@ int main(int argc, char *argv[]){
 
     do{   /* Display the menu with the user commands */
 
-    }while (!Commands(sizeOfBloom, numMonitors, bufferSize, monitorInfo, bloomListHead, &req));
+    }while (!Commands(sizeOfBloom, numMonitors, socketBufferSize, monitorInfo, bloomListHead, &req));
 
     kill(getpid(), SIGINT);
     cout << "Program completed successfully." << endl;
@@ -252,16 +261,16 @@ void handle_sigint_parent(int sig){
     for (int i = 0; i < 2 * numMonitors; i++)
         unlink(paths[i].c_str());
 
-    string logFileStr = "log_file." + to_string(getpid()) + ".txt";
-    ofstream logFile;
-    logFile.open(logFileStr);                                           /* Create and open the file */
+    // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
+    // ofstream logFile;
+    // logFile.open(logFileStr);                                           /* Create and open the file */
 
-    CountryListPrintInFile(countryListHead,logFile);                    /* Print all the countries in the logFile */
-    logFile << "TOTAL TRAVEL REQUESTS " << req.totalReq << endl;        /* Print total travel requests in the logfile */
-    logFile << "ACCEPTED " << req.acceptedReq << endl;                  /* Print accepted requests in the logfile */
-    logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
+    // CountryListPrintInFile(countryListHead,logFile);                    /* Print all the countries in the logFile */
+    // logFile << "TOTAL TRAVEL REQUESTS " << req.totalReq << endl;        /* Print total travel requests in the logfile */
+    // logFile << "ACCEPTED " << req.acceptedReq << endl;                  /* Print accepted requests in the logfile */
+    // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
-    logFile.close();                                                    /* Close the file */
+    // logFile.close();                                                    /* Close the file */
 }
 
 void handle_SIGCHLD_parent(int sig){
@@ -308,9 +317,9 @@ void handle_SIGCHLD_parent(int sig){
         exit(EXIT_FAILURE);
     }
 
-    writeInt(bufferSize,monitorInfo[tempIndex].writeFd);
+    writeInt(socketBufferSize,monitorInfo[tempIndex].writeFd);
     writeInt(sizeOfBloom,monitorInfo[tempIndex].writeFd);     
-    writeString(inputDir.c_str(),bufferSize,monitorInfo[tempIndex].writeFd);
+    writeString(inputDir.c_str(),socketBufferSize,monitorInfo[tempIndex].writeFd);
 
     /* Open directory */
     DIR *inputDIR = opendir(inputDir.c_str());
@@ -324,7 +333,7 @@ void handle_SIGCHLD_parent(int sig){
 
     /* Send the counties to the monitor with index "tempIndex" */
     while (tempCountryNode != NULL){
-        writeString((tempCountryNode->country).c_str(),bufferSize,monitorInfo[tempIndex].writeFd);
+        writeString((tempCountryNode->country).c_str(),socketBufferSize,monitorInfo[tempIndex].writeFd);
         tempCountryNode = tempCountryNode->next;
     }
 
@@ -339,8 +348,8 @@ void handle_SIGCHLD_parent(int sig){
 
     for (int j = 0; j < numOfViruses; j++){             /* How many bloom filters to read */
 
-        string virusNameStr = readString(monitorInfo[tempIndex].readFd, bufferSize);                    /* Get the virus name */
-        tempBloom = readBloom(monitorInfo[tempIndex].readFd, bufferSize,sizeOfBloom);
+        string virusNameStr = readString(monitorInfo[tempIndex].readFd, socketBufferSize);                    /* Get the virus name */
+        tempBloom = readBloom(monitorInfo[tempIndex].readFd, socketBufferSize,sizeOfBloom);
 
         /* Create the list with the bloom filters */
         if (!(BloomListSearch(bloomListHead, virusNameStr)))                        /* If virusName is not already in the list => add it (in the beginning) */

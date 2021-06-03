@@ -227,16 +227,16 @@ int main(int argc, char *argv[]){
 void handler_SIGINT_and_SIGQUIT(int sig){
 
 
-    string logFileStr = "log_file." + to_string(getpid()) + ".txt";
-    ofstream logFile;
-    logFile.open(logFileStr);                                   /* Create and open the file */
+    // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
+    // ofstream logFile;
+    // logFile.open(logFileStr);                                   /* Create and open the file */
 
-    CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
-    logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
-    logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
-    logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
+    // CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
+    // logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
+    // logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
+    // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
 
-    logFile.close();
+    // logFile.close();
 
     /* Delete the lists */
     VirusDeleteList(&virusListHead);
