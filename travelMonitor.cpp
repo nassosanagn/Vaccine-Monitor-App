@@ -39,7 +39,7 @@ void handle_SIGCHLD_parent(int sig);
 
 int main(int argc, char *argv[]){
 
-    if (argc != 9){
+    if (argc != 15){
         perror("Invalid number of arguments");
         exit(1);
     }
