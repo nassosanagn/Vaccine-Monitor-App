@@ -1,0 +1,50 @@
+char* readBloom(int readFd, int bufferSize, int bloomSize){
+
+    char* temp = new char[bloomSize + 1];
+    memset(temp,'\0', bloomSize + 1);
+
+    int counter = 0;
+    for (int i = 0; i < bloomSize/bufferSize; i++){
+            
+        if (read(readFd, &(temp[counter]), bufferSize) == -1){
+            perror("Couldnt write bloomSize");
+            exit(EXIT_FAILURE);
+        }
+      counter += bufferSize;
+    }
+    if (counter < bloomSize){     /* write the remaining bytes */
+                   
+        int tempBuff = bloomSize - counter;       /* tempBuff will always be smaller that the bufferSize */
+
+        if (read(readFd, &(temp[counter]), tempBuff) == -1){
+            perror("Couldnt write bloomSize");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    temp[bloomSize + 1] = '\0';
+    return temp;
+}
+
+void writeBloom(const char* strToSend, int bufferSize, int bloomSize, int writeFd){
+
+    int counter = 0;
+    for (int i = 0; i < bloomSize/bufferSize; i++){
+
+        if (write(writeFd, &(strToSend[counter]), bufferSize) == -1){
+            perror("Couldnt write bloomSize");
+            exit(EXIT_FAILURE);
+        }
+        counter += bufferSize;
+    }
+
+    if (counter < bloomSize){     /* write the remaining bytes */
+            
+        int tempBuff = bloomSize - counter;       /* tempBuff will always be smaller that the bufferSize */
+
+        if (write(writeFd, &(strToSend[counter]), tempBuff) == -1){
+            perror("Couldnt write bloomSize");
+            exit(EXIT_FAILURE);
+        }
+    }
+}

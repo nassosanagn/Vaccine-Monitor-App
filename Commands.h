@@ -14,12 +14,12 @@
 
 #include "ReadFile.h"
 #include "bloomList.h"
-#include "PipeFunctions.h"
+#include "SocketFunctions.h"
 
 typedef struct{
     pid_t monitorId;
-    int readFd;
-    int writeFd;
+    // int readFd;
+    // int writeFd;
     int socketFd;
     CountryNode* countryListHead = NULL;
 }Info;

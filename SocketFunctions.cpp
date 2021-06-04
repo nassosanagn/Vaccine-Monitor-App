@@ -1,32 +1,33 @@
-#include "PipeFunctions.h"
+#include "SocketFunctions.h"
 
-string readString(int readFd, int bufferSize){
+string readString(int socketFd, int bufferSize){
 
-    int strSize = 0;
+    int strSize;
 
-    if (read(readFd, &strSize, sizeof(int)) == -1){
-        perror("Couldnt write strSize");
+    if (read(socketFd , &strSize, sizeof(int)) == -1){
+        perror("Couldnt read strSize");
         exit(EXIT_FAILURE);
     }
-
+    
     char temp[strSize];
+    memset(temp, '\0', sizeof(strSize));
     int counter = 0;
 
     for (int i = 0; i < strSize/bufferSize; i++){
-            
-        if (read(readFd, &(temp[counter]), bufferSize) == -1){
-            perror("Couldnt write strSize");
+
+        if (read(socketFd , &(temp[counter]) ,bufferSize) == -1){
+            perror("Couldnt read string");
             exit(EXIT_FAILURE);
         }
-      counter += bufferSize;
+        counter += bufferSize;
     }
 
-    if (counter < strSize){     /* write the remaining bytes */
+    if (counter < strSize){                      /* write the remaining bytes */
                    
         int tempBuff = strSize - counter;       /* tempBuff will always be smaller that the bufferSize */
 
-        if (read(readFd, &(temp[counter]), tempBuff) == -1){
-            perror("Couldnt write strSize");
+        if (read(socketFd , &(temp[counter]),tempBuff) == -1){
+            perror("Couldnt read string");
             exit(EXIT_FAILURE);
         }
     }
@@ -36,11 +37,22 @@ string readString(int readFd, int bufferSize){
     return retStr;
 }
 
-void writeString(const char* strToSend, int bufferSize, int writeFd){
+int readInt(int socketFd){
+    
+    int temp;
+
+    if (read(socketFd, &temp, sizeof(int)) == -1){ 
+        perror("Couldnt read temp");
+        exit(EXIT_FAILURE);
+    }
+    return temp;
+}
+
+int sendString(int socketFd, const char* strToSend, int bufferSize){
 
     int strSize = strlen(strToSend);
 
-    if (write(writeFd, &strSize, sizeof(int)) == -1){
+    if (send(socketFd , &strSize , sizeof(int), 0) == -1){
         perror("Couldnt write strSize");
         exit(EXIT_FAILURE);
     }
@@ -49,7 +61,7 @@ void writeString(const char* strToSend, int bufferSize, int writeFd){
 
     for (int i = 0; i < strSize/bufferSize; i++){
 
-        if (write(writeFd, &(strToSend[counter]), bufferSize) == -1){
+        if (send(socketFd , &(strToSend[counter]) , bufferSize, 0 ) == -1){
             perror("Couldnt write strSize");
             exit(EXIT_FAILURE);
         }
@@ -58,37 +70,28 @@ void writeString(const char* strToSend, int bufferSize, int writeFd){
 
     if (counter < strSize){     /* write the remaining bytes */
             
-        int tempBuff = strSize - counter;       /* tempBuff will always be smaller that the bufferSize */
+        int tempBuff = strSize - counter;                       /* tempBuff will always be smaller that the bufferSize */
 
-        if (write(writeFd, &(strToSend[counter]), tempBuff) == -1){
+        if (send(socketFd , &(strToSend[counter]) , tempBuff, 0) == -1){
             perror("Couldnt write strSize");
             exit(EXIT_FAILURE);
         }
     }
+
+    return 1;
 }
 
-int readInt(int readFd){
-    
-    int temp;
-
-    if (read(readFd, &temp, sizeof(int)) == -1){ 
-        perror("Couldnt read temp");
-        exit(EXIT_FAILURE);
-    }
-    return temp;
-}
-
-void writeInt(int x, int writeFd){
+void sendInt(int socketFd, int x){
     
     int temp = x;
 
-    if (write(writeFd, &temp, sizeof(int)) == -1){  
+    if (send(socketFd, &temp, sizeof(int), 0) == -1){  
         perror("Couldnt write strSize");
         exit(EXIT_FAILURE);
     }
 }
 
-char* readBloom(int readFd, int bufferSize, int bloomSize){
+char* readBloom(int socketFd, int bloomSize, int bufferSize){
 
     char* temp = new char[bloomSize + 1];
     memset(temp,'\0', bloomSize + 1);
@@ -96,7 +99,7 @@ char* readBloom(int readFd, int bufferSize, int bloomSize){
     int counter = 0;
     for (int i = 0; i < bloomSize/bufferSize; i++){
             
-        if (read(readFd, &(temp[counter]), bufferSize) == -1){
+        if (read(socketFd, &(temp[counter]), bufferSize) == -1){
             perror("Couldnt write bloomSize");
             exit(EXIT_FAILURE);
         }
@@ -106,7 +109,7 @@ char* readBloom(int readFd, int bufferSize, int bloomSize){
                    
         int tempBuff = bloomSize - counter;       /* tempBuff will always be smaller that the bufferSize */
 
-        if (read(readFd, &(temp[counter]), tempBuff) == -1){
+        if (read(socketFd, &(temp[counter]), tempBuff) == -1){
             perror("Couldnt write bloomSize");
             exit(EXIT_FAILURE);
         }
@@ -116,12 +119,12 @@ char* readBloom(int readFd, int bufferSize, int bloomSize){
     return temp;
 }
 
-void writeBloom(const char* strToSend, int bufferSize, int bloomSize, int writeFd){
+void sendBloom(int socketFd, const char* strToSend, int bloomSize, int bufferSize){
 
     int counter = 0;
     for (int i = 0; i < bloomSize/bufferSize; i++){
 
-        if (write(writeFd, &(strToSend[counter]), bufferSize) == -1){
+        if (send(socketFd, &(strToSend[counter]), bufferSize, 0) == -1){
             perror("Couldnt write bloomSize");
             exit(EXIT_FAILURE);
         }
@@ -132,9 +135,11 @@ void writeBloom(const char* strToSend, int bufferSize, int bloomSize, int writeF
             
         int tempBuff = bloomSize - counter;       /* tempBuff will always be smaller that the bufferSize */
 
-        if (write(writeFd, &(strToSend[counter]), tempBuff) == -1){
+        if (send(socketFd, &(strToSend[counter]), tempBuff, 0) == -1){
             perror("Couldnt write bloomSize");
             exit(EXIT_FAILURE);
         }
     }
 }
+
+/*---------------------------------------------------------------- */

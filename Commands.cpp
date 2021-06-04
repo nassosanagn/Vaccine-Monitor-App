@@ -1,12 +1,12 @@
 #include "Commands.h"
 
-int travelRequest(string InputWords[], int numMonitors, int bufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);         /* Command 1 */
+int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);         /* Command 1 */
 int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                               /* Command 2 */
-int addVaccinationRecords(string InputWords[], int numMonitors, int bufferSize , Info monitorInfo[], BloomNode* bloomListHead);                    /* Command 3 */
-int searchVaccinationStatus(string InputWords[], int numMonitors, int bufferSize, Info monitorInfo[]);                                             /* Command 4 */                             
+int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead);                    /* Command 3 */
+int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]);                                             /* Command 4 */                             
 int exit(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                                      /* Command 5 */   
 
-int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
+int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
 
   string InputWords[12];
   string input, word;
@@ -24,7 +24,7 @@ int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[],
   
   if (InputWords[0].compare("/travelRequest") == 0){                /* Command 1 - /travelRequest citizenID date countryFrom countryTo virusName */
 
-    travelRequest(InputWords,numMonitors,bufferSize,monitorInfo,bloomListHead,req); 
+    travelRequest(InputWords,numMonitors,socketBufferSize,monitorInfo,bloomListHead,req); 
   
   }else if (InputWords[0].compare("/travelStats") == 0){                   /* Command 2 - /travelStats virusName date1 date2 [country] */
 
@@ -32,11 +32,11 @@ int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[],
 
   }else if (InputWords[0].compare("/addVaccinationRecords") == 0){            /* Command 3 - /addVaccinationRecords country */
 
-    addVaccinationRecords(InputWords,numMonitors,bufferSize,monitorInfo,bloomListHead);
+    addVaccinationRecords(InputWords,numMonitors,socketBufferSize,monitorInfo,bloomListHead);
 
   }else if (InputWords[0].compare("/searchVaccinationStatus") == 0){          /* Command 4 - /searchVaccinationStatus citizenID */
 
-    searchVaccinationStatus(InputWords,numMonitors,bufferSize,monitorInfo);
+    searchVaccinationStatus(InputWords,numMonitors,socketBufferSize,monitorInfo);
 
   }else if (InputWords[0].compare("/exit") == 0){                             /* Command 5 - /exit */
 
@@ -49,7 +49,7 @@ int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[],
 }
 
 /* Command 1 - /travelRequest citizenID date countryFrom countryTo virusName */
-int travelRequest(string InputWords[], int numMonitors, int bufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
+int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
   
   int citizenId = stoi(InputWords[1]);
   string virusName = InputWords[5];
@@ -71,15 +71,16 @@ int travelRequest(string InputWords[], int numMonitors, int bufferSize, Info mon
 
         foundFlag = 1;
 
-        writeString("/travelRequest",bufferSize,monitorInfo[i].writeFd);
-        writeInt(citizenId,monitorInfo[i].writeFd);                               /* Send citizenId */
-        writeString(virusName.c_str(),bufferSize,monitorInfo[i].writeFd);         /* Send virusName */
+        sendString(monitorInfo[i].socketFd, "/travelRequest", socketBufferSize);
 
-        string isVaccinated = readString(monitorInfo[i].readFd,bufferSize);       /* Get the answer (if the citizen is vaccinated or not) */
+        sendInt(monitorInfo[i].socketFd, citizenId);                               /* Send citizenId */
+        sendString(monitorInfo[i].socketFd, virusName.c_str(),socketBufferSize);         /* Send virusName */
+
+        string isVaccinated = readString(monitorInfo[i].socketFd,socketBufferSize);       /* Get the answer (if the citizen is vaccinated or not) */
 
         if (isVaccinated.compare("YES") == 0){                                  /* If citizen is vaccinated */
 
-          string dateStr = readString(monitorInfo[i].readFd, bufferSize);
+          string dateStr = readString(monitorInfo[i].socketFd, socketBufferSize);
           Date vaccinationDate;
           vaccinationDate.getDateFromStr(dateStr);
 
@@ -176,7 +177,7 @@ int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomN
   return 1;
 }
 /* Command 3 - /addVaccinationRecords country */
-int addVaccinationRecords(string InputWords[], int numMonitors, int bufferSize , Info monitorInfo[], BloomNode* bloomListHead){ 
+int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead){ 
 
   if ((InputWords[1].compare("\0") == 0) || (InputWords[2].compare("\0") != 0)){    /* There must be exactly 2 arguments */
     cout << "ERROR in command /addVaccinationRecords" << endl;
@@ -192,17 +193,17 @@ int addVaccinationRecords(string InputWords[], int numMonitors, int bufferSize ,
 
       foundFlag = 1;
 
-      kill(monitorInfo[i].monitorId, SIGUSR1);                          /* Send SIGUSR1 signal to monitor that contains the country */
-      writeString(country.c_str(),bufferSize,monitorInfo[i].writeFd);   /* Send county's name to monitor */
+      sendString(monitorInfo[i].socketFd, "/addVaccinationRecords", socketBufferSize);    
+      sendString(monitorInfo[i].socketFd, country.c_str(),socketBufferSize);     /* Send county's name to monitor */
 
-      int numOfViruses = readInt(monitorInfo[i].readFd);              /* Get the number of viruses (equals with the number of bloom filters) */
+      int numOfViruses = readInt(monitorInfo[i].socketFd);              /* Get the number of viruses (equals with the number of bloom filters) */
       int sizeOfBloom = bloomListHead->bloomFilter->getBloomSize();
       char* tempBloom;
 
       for (int j = 0; j < numOfViruses; j++){             /* How many bloom filters to read */
         
-        string virusNameStr = readString(monitorInfo[i].readFd, bufferSize);                /* Get the virus name */
-        tempBloom = readBloom(monitorInfo[i].readFd, bufferSize,sizeOfBloom);              /* Get the bloom filter */
+        string virusNameStr = readString(monitorInfo[i].socketFd, socketBufferSize);                /* Get the virus name */
+        tempBloom = readBloom(monitorInfo[i].socketFd, sizeOfBloom, socketBufferSize);              /* Get the bloom filter */
 
         /* Update the list with the bloom filters */
         if (!(BloomListSearch(bloomListHead, virusNameStr)))                        /* If virusName is not already in the list => add it */
@@ -221,7 +222,7 @@ int addVaccinationRecords(string InputWords[], int numMonitors, int bufferSize ,
   return 1;
 }
 /* Command 4 - /searchVaccinationStatus citizenID */
-int searchVaccinationStatus(string InputWords[], int numMonitors, int bufferSize, Info monitorInfo[]){
+int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]){
 
   if ((InputWords[1].compare("\0") == 0) || (InputWords[2].compare("\0") != 0)){
     cout << "ERROR in command /searchVaccinationStatus" << endl;
@@ -233,40 +234,40 @@ int searchVaccinationStatus(string InputWords[], int numMonitors, int bufferSize
 
   for (int i = 0; i < numMonitors; i++){
 
-    writeString("/searchVaccinationStatus",bufferSize,monitorInfo[i].writeFd);
-    writeInt(citizenId,monitorInfo[i].writeFd);
+    sendString(monitorInfo[i].socketFd, "/searchVaccinationStatus", socketBufferSize);    
+    sendInt(monitorInfo[i].socketFd, citizenId);
 
-    foundFlag = readInt(monitorInfo[i].readFd);
+    foundFlag = readInt(monitorInfo[i].socketFd);
 
     if (foundFlag == 1){    /* this is the monitor (with index i) that contains citizen with id "citizenId" */
 
-      string firstName = readString(monitorInfo[i].readFd, bufferSize);
-      string lastName = readString(monitorInfo[i].readFd, bufferSize);
-      string country = readString(monitorInfo[i].readFd, bufferSize);
-      int age = readInt(monitorInfo[i].readFd);
+      string firstName = readString(monitorInfo[i].socketFd, socketBufferSize);
+      string lastName = readString(monitorInfo[i].socketFd, socketBufferSize);
+      string country = readString(monitorInfo[i].socketFd, socketBufferSize);
+      int age = readInt(monitorInfo[i].socketFd);
 
       cout << endl << firstName << " " << lastName << " " << country << endl;
       cout << "AGE " << age << endl;
   
       while(1){
 
-        string isVaccinated = readString(monitorInfo[i].readFd, bufferSize);
+        string isVaccinated = readString(monitorInfo[i].socketFd, socketBufferSize);
 
         if (isVaccinated.compare("STOPPED") == 0)
           break;
         
         if (isVaccinated.compare("YES") == 0){
 
-          string virusName = readString(monitorInfo[i].readFd, bufferSize);
+          string virusName = readString(monitorInfo[i].socketFd, socketBufferSize);
           cout << virusName << " VACCINATED ON ";
-          string dateStr = readString(monitorInfo[i].readFd, bufferSize);
+          string dateStr = readString(monitorInfo[i].socketFd, socketBufferSize);
           Date vaccinationDate;
           vaccinationDate.getDateFromStr(dateStr);
           vaccinationDate.printDate();
           cout << endl;
 
         }else{
-          string virusName = readString(monitorInfo[i].readFd, bufferSize);
+          string virusName = readString(monitorInfo[i].socketFd, socketBufferSize);
           cout << virusName << " NOT YET VACCINATED" << endl;
         }
       }

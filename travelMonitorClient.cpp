@@ -17,33 +17,19 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <netdb.h> /* gethostbyaddr */
 
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <netinet/in.h>
-#include <string.h>
+#define PORT 9028
 
 using namespace std;
-
-int sendString2(int socketFd, const char* strToSend, int bufferSize){
-
-    int strSize = strlen(strToSend);
-
-    send(socketFd , &strSize , sizeof(int), 0);
-    send(socketFd , strToSend , strlen(strToSend) , 0 );
-
-    return 1;
-}
 
 struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
 struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
 
-bool suicide = false;
 int numMonitors;
 string* paths;
 Info* monitorInfo;                      /* Info array with read file descriptor , write fd and monitor id */
 
-int port = 9099;
 int socketBufferSize = 0;
 int sizeOfBloom = 0;
 string inputDir;
@@ -51,7 +37,6 @@ string inputDir;
 NumOfRequests req;
 
 void handle_sigint_parent(int sig);
-void handle_SIGCHLD_parent(int sig);
 
 int main(int argc, char *argv[]){
 
@@ -91,7 +76,6 @@ int main(int argc, char *argv[]){
 
     signal(SIGINT,  handle_sigint_parent);
     signal(SIGQUIT, handle_sigint_parent);
-    signal(SIGCHLD, handle_SIGCHLD_parent);
     
     paths = new string[2 * numMonitors];
     monitorInfo  = new Info[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
@@ -103,28 +87,19 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < 2 * numMonitors; i++){
-    
-        paths[i] = "/tmp/myFifo." + to_string(i);
-
-        if (mkfifo(paths[i].c_str(), 0666) == -1){
-            if (errno != EEXIST){
-                perror("ERROR\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
-
     int pid;
-    /* fork() numMonitors child processes */
-    for (int i = 0; i < 2 * numMonitors; i+=2){ 
+    for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
 
         if ((pid = fork()) == 0){
             
-            /* paths[x] = writeFd && paths[x + 1] = readFd */
-            string portStr = to_string((port + i/2));
-            //cout << "to port einaiii: " << portStr << endl;
-            const char* args[] = {"./Monitor", paths[i].c_str(), paths[i + 1].c_str(), portStr.c_str(), NULL};
+            string tempPort = to_string((PORT + i/2));
+            string tempNumThreads = to_string(numThreads);
+            string tempSocketBufferSize = to_string(socketBufferSize);
+            string tempCyclicBufferSize = to_string(cyclicBufferSize);
+            string tempSizeOfBloom = to_string(sizeOfBloom);
+
+            const char* args[] = {"./Monitor", "-p", tempPort.c_str(), "-t", tempNumThreads.c_str(), "-b", tempSocketBufferSize.c_str(), "-c", tempCyclicBufferSize.c_str(),
+            "-s", tempSizeOfBloom.c_str() , "path1" , NULL};
 
             if (execvp("./Monitor", (char* const*) args) == -1){
                 cout << "Failed execvp!" << endl;
@@ -136,68 +111,46 @@ int main(int argc, char *argv[]){
             monitorInfo[i/2].monitorId = pid;
         }
     }
+      
+    /* ------------------------------ SOCKETS ------------------------------ */
 
-    int writefd;
-    int readfd;
+    for (int i = 0; i < numMonitors; i++){
 
-    int currentCountry = 0;
-    for (int i = 0; i < 2 * numMonitors; i+=2){
-        
-        if ((writefd = open(paths[i].c_str(), 1))  < 0){  
-            perror("server: can't open write fifo");
-            exit(EXIT_FAILURE);
-        }
+        int sock = 0;
+        int connectStatus;
+        struct sockaddr_in serverAddr;
 
-        if ((readfd = open(paths[i + 1].c_str(), 0))  < 0){  
-            perror("server: can't open write fifo");
-            exit(EXIT_FAILURE);
-        }
-
-        /* Monitor Info*/
-        monitorInfo[i/2].writeFd = writefd;
-        monitorInfo[i/2].readFd = readfd;
-
-        writeInt(socketBufferSize,writefd);
-        writeInt(sizeOfBloom,writefd);     
-        writeString(inputDir.c_str(),socketBufferSize,writefd);
-    }     
-
-    /* ---------------------------------------------------------------- */
-
-    cout << "mpainei sto travel " << endl;
-    //int x = 6;
-
-    for(int i = 0; i < numMonitors; i++){
-
-        cout << "gia thn fora: " << i + 1 << endl;
-
-        int sock = 0, valread;
-        struct sockaddr_in serv_addr;
-        char buffer[1024] = {0};
-
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        {
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0){
             printf("\n Socket creation error \n");
             return -1;
         }
 
-        memset(&serv_addr, '\0', sizeof(serv_addr));
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons((port+i));
-        
-        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-        {
-            printf("\nConnection Failed \n");
-            return -1;
-        }
-        
+        // char hostname[1024];
+        // hostname[1023] = '\0';
+        // gethostname(hostname, 1023);
+        // printf("Hostname: %s\n", hostname);
+        // struct hostent* h;
+        // h = gethostbyname(hostname);
+        // printf("h_name: %s\n", h->h_name);
+
+        memset(&serverAddr, '\0', sizeof(serverAddr));
+        // memcpy(&serverAddr.sin_addr, h->h_addr, h->h_length);
+
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_port = htons((PORT+i));
+
+        do
+            connectStatus = connect(sock, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        while (connectStatus < 0);
+
         monitorInfo[i].socketFd = sock;
-        sendString2(sock, inputDir.c_str(), socketBufferSize);      // send the input directory
-        close(sock);
     }
 
     /* ---------------------------------------------------------------- */
 
+    for (int i = 0; i < numMonitors; i++)
+        sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);      /* Send the input directory */
+    
     struct dirent *counter;
     int countCountries = 0;
 
@@ -209,7 +162,7 @@ int main(int argc, char *argv[]){
         string directory = counter->d_name;
         const char * directoryToSend = directory.c_str();
 
-        writeString(directoryToSend, socketBufferSize, monitorInfo[countCountries].writeFd);        /* Send directory (countryName) to monitor */
+        sendString(monitorInfo[countCountries].socketFd, directoryToSend, socketBufferSize);
 
         /* Create the list with the countries */
         if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
@@ -226,7 +179,7 @@ int main(int argc, char *argv[]){
 
     int endFlag = -1;
     for (int i = 0; i < numMonitors; i++){              /* Read in child (travelMonitor) until endFlag = -1 */
-        writeInt(endFlag, monitorInfo[i].writeFd);
+        sendInt(monitorInfo[i].socketFd,endFlag);
     }
 
     /* Read the bloom filters */
@@ -235,13 +188,13 @@ int main(int argc, char *argv[]){
 
     FD_ZERO(&readFdsSet);
     for(int i = 0; i < numMonitors; i++){
-        FD_SET(monitorInfo[i].readFd, &readFdsSet);
+        FD_SET(monitorInfo[i].socketFd, &readFdsSet);
     }
     
-    int maxfd = monitorInfo[0].readFd;
+    int maxfd = monitorInfo[0].socketFd;
     for (int i = 1; i < numMonitors; i++){
-        if (monitorInfo[i].readFd > maxfd){
-            maxfd = monitorInfo[i].readFd;
+        if (monitorInfo[i].socketFd > maxfd){
+            maxfd = monitorInfo[i].socketFd;
         }
     }
 
@@ -256,17 +209,17 @@ int main(int argc, char *argv[]){
 
         for (int i = 0; i < numMonitors; i++){                   /* For each child */
             
-            FD_SET(monitorInfo[i].readFd, &readFdsSet);
+            FD_SET(monitorInfo[i].socketFd, &readFdsSet);
 
-            if (FD_ISSET(monitorInfo[i].readFd, &readFdsSet)){
+            if (FD_ISSET(monitorInfo[i].socketFd, &readFdsSet)){
 
                 /* Get the number of viruses (equals with the number of bloom filters) */
-                int numOfViruses = readInt(monitorInfo[i].readFd);
+                int numOfViruses = readInt(monitorInfo[i].socketFd);
 
                 for (int j = 0; j < numOfViruses; j++){                                         /* How many bloom filters to read */
 
-                    string virusNameStr = readString(monitorInfo[i].readFd, socketBufferSize);        /* Get the virus name */
-                    tempBloom = readBloom(monitorInfo[i].readFd, socketBufferSize,sizeOfBloom);
+                    string virusNameStr = readString(monitorInfo[i].socketFd, socketBufferSize);        /* Get the virus name */
+                    tempBloom = readBloom(monitorInfo[i].socketFd, sizeOfBloom, socketBufferSize);
 
                     /* Create the list with the bloom filters */
                     if (!(BloomListSearch(bloomListHead, virusNameStr)))                        /* If virusName is not already in the list => add it (in the beginning) */
@@ -283,11 +236,7 @@ int main(int argc, char *argv[]){
         
     }while(counterMonitor != numMonitors);
     
-    // for (int i = 0; i < numMonitors; i++){
-    //     kill(monitorInfo[i].monitorId, SIGINT);
-    //     pause();                                        // wait for signal
-    // }
-    
+
     /* ------------------------------------------ User's commands ------------------------------------------ */
 
     do{   /* Display the menu with the user commands */
@@ -301,7 +250,7 @@ int main(int argc, char *argv[]){
 
 void handle_sigint_parent(int sig){
 
-    suicide = true;
+    //suicide = true;
 
     /* Send SIGKILL signal to each monitor => command "/exit" was used */
     for (int i = 0; i < numMonitors; i++)
@@ -312,8 +261,9 @@ void handle_sigint_parent(int sig){
         waitpid(monitorInfo[i].monitorId, NULL, 0);
     
     /* Unlink the named pipes */
-    for (int i = 0; i < 2 * numMonitors; i++)
-        unlink(paths[i].c_str());
+    for (int i = 0; i < 2 * numMonitors; i++){
+        close(monitorInfo[i].socketFd);
+    }
 
     // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
     // ofstream logFile;
@@ -325,92 +275,4 @@ void handle_sigint_parent(int sig){
     // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
     // logFile.close();                                                    /* Close the file */
-}
-
-void handle_SIGCHLD_parent(int sig){
-
-    pid_t pid;
-    int status;
-
-    while ((pid = waitpid(-1, &status, WNOHANG)) <= 0){
-    }
-
-    if (suicide)        /* If travelMonitor commits suicide ignore SIGCHLD signal => don't fork monitors again '*/
-        return;
-
-    int tempIndex;
-
-    for (int i = 0; i < numMonitors; i++){
-        if (monitorInfo[i].monitorId == pid){
-            tempIndex = i;
-        }
-    }
-        
-    if ((pid = fork()) == 0){
-
-        /* paths[x] = writeFd && paths[x + 1] = readFd */
-        const char* args[] = {"./Monitor", paths[tempIndex*2].c_str(), paths[(tempIndex*2) + 1].c_str(), (char*) NULL};
-
-        if (execvp(args[0], (char* const*) args) == -1){
-            cout << "Failed execvp!" << endl;
-            return;
-        }
-        exit(0);
-
-    }else{
-        monitorInfo[tempIndex].monitorId = pid;
-    }
-        
-    if ((monitorInfo[tempIndex].writeFd = open(paths[2*tempIndex].c_str(), 1))  < 0){  
-        perror("server: can't open write fifo");
-        exit(EXIT_FAILURE);
-    }
-
-    if ((monitorInfo[tempIndex].readFd = open(paths[(2*tempIndex) + 1].c_str(), 0))  < 0){  
-        perror("server: can't open write fifo");
-        exit(EXIT_FAILURE);
-    }
-
-    writeInt(socketBufferSize,monitorInfo[tempIndex].writeFd);
-    writeInt(sizeOfBloom,monitorInfo[tempIndex].writeFd);     
-    writeString(inputDir.c_str(),socketBufferSize,monitorInfo[tempIndex].writeFd);
-
-    /* Open directory */
-    DIR *inputDIR = opendir(inputDir.c_str());
-    
-    if (ENOENT == errno) {
-        perror("Couldn't open input directory");
-        exit(EXIT_FAILURE);
-    }
-  
-    CountryNode* tempCountryNode = monitorInfo[tempIndex].countryListHead;
-
-    /* Send the counties to the monitor with index "tempIndex" */
-    while (tempCountryNode != NULL){
-        writeString((tempCountryNode->country).c_str(),socketBufferSize,monitorInfo[tempIndex].writeFd);
-        tempCountryNode = tempCountryNode->next;
-    }
-
-    int endFlag = -1;
-    writeInt(endFlag, monitorInfo[tempIndex].writeFd);          /* Read in child (travelMonitor) until endFlag = -1 */
-
-    /* Read the bloom filters */
-    char* tempBloom;
-
-    /* Get the number of viruses (equals with the number of bloom filters) */
-    int numOfViruses = readInt(monitorInfo[tempIndex].readFd);
-
-    for (int j = 0; j < numOfViruses; j++){             /* How many bloom filters to read */
-
-        string virusNameStr = readString(monitorInfo[tempIndex].readFd, socketBufferSize);                    /* Get the virus name */
-        tempBloom = readBloom(monitorInfo[tempIndex].readFd, socketBufferSize,sizeOfBloom);
-
-        /* Create the list with the bloom filters */
-        if (!(BloomListSearch(bloomListHead, virusNameStr)))                        /* If virusName is not already in the list => add it (in the beginning) */
-            BloomListPush(&bloomListHead, virusNameStr, tempBloom, sizeOfBloom);
-        else
-            BloomListMergeBlooms(bloomListHead, virusNameStr, tempBloom);
-
-        delete tempBloom;
-    }
 }
