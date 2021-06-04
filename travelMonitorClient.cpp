@@ -18,7 +18,22 @@
 #include <sys/wait.h>
 #include <errno.h>
 
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <string.h>
+
 using namespace std;
+
+int sendString2(int socketFd, const char* strToSend, int bufferSize){
+
+    int strSize = strlen(strToSend);
+
+    send(socketFd , &strSize , sizeof(int), 0);
+    send(socketFd , strToSend , strlen(strToSend) , 0 );
+
+    return 1;
+}
 
 struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
 struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
@@ -28,6 +43,7 @@ int numMonitors;
 string* paths;
 Info* monitorInfo;                      /* Info array with read file descriptor , write fd and monitor id */
 
+int port = 9099;
 int socketBufferSize = 0;
 int sizeOfBloom = 0;
 string inputDir;
@@ -106,7 +122,9 @@ int main(int argc, char *argv[]){
         if ((pid = fork()) == 0){
             
             /* paths[x] = writeFd && paths[x + 1] = readFd */
-            const char* args[] = {"./Monitor", paths[i].c_str(), paths[i + 1].c_str(), NULL};
+            string portStr = to_string((port + i/2));
+            //cout << "to port einaiii: " << portStr << endl;
+            const char* args[] = {"./Monitor", paths[i].c_str(), paths[i + 1].c_str(), portStr.c_str(), NULL};
 
             if (execvp("./Monitor", (char* const*) args) == -1){
                 cout << "Failed execvp!" << endl;
@@ -143,6 +161,42 @@ int main(int argc, char *argv[]){
         writeInt(sizeOfBloom,writefd);     
         writeString(inputDir.c_str(),socketBufferSize,writefd);
     }     
+
+    /* ---------------------------------------------------------------- */
+
+    cout << "mpainei sto travel " << endl;
+    //int x = 6;
+
+    for(int i = 0; i < numMonitors; i++){
+
+        cout << "gia thn fora: " << i + 1 << endl;
+
+        int sock = 0, valread;
+        struct sockaddr_in serv_addr;
+        char buffer[1024] = {0};
+
+        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        {
+            printf("\n Socket creation error \n");
+            return -1;
+        }
+
+        memset(&serv_addr, '\0', sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons((port+i));
+        
+        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+        {
+            printf("\nConnection Failed \n");
+            return -1;
+        }
+        
+        monitorInfo[i].socketFd = sock;
+        sendString2(sock, inputDir.c_str(), socketBufferSize);      // send the input directory
+        close(sock);
+    }
+
+    /* ---------------------------------------------------------------- */
 
     struct dirent *counter;
     int countCountries = 0;
@@ -229,10 +283,10 @@ int main(int argc, char *argv[]){
         
     }while(counterMonitor != numMonitors);
     
-    for (int i = 0; i < numMonitors; i++){
-        kill(monitorInfo[i].monitorId, SIGINT);
-        pause();                                        // wait for signal
-    }
+    // for (int i = 0; i < numMonitors; i++){
+    //     kill(monitorInfo[i].monitorId, SIGINT);
+    //     pause();                                        // wait for signal
+    // }
     
     /* ------------------------------------------ User's commands ------------------------------------------ */
 

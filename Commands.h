@@ -20,6 +20,7 @@ typedef struct{
     pid_t monitorId;
     int readFd;
     int writeFd;
+    int socketFd;
     CountryNode* countryListHead = NULL;
 }Info;
 
