@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <netdb.h> /* gethostbyaddr */
 
-#define PORT 9010
+#define PORT 9030
 
 using namespace std;
 
