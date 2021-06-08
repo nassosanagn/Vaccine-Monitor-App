@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <netdb.h> /* gethostbyaddr */
 
-#define PORT 9000
+#define PORT 9020
 
 using namespace std;
 
@@ -113,7 +113,6 @@ int main(int argc, char *argv[]){
         if ((pid = fork()) == 0){
             
             string allCountries = getAllCountries(monitorInfo[i/2].countryListHead);
-            cout << "Oles oi xwres einai: " << allCountries.c_str() << endl; 
 
             string tempPort = to_string((PORT + i/2));
             string tempNumThreads = to_string(numThreads);

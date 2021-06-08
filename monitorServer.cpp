@@ -97,15 +97,17 @@ void * producer(void * ptr){
 }
 
 void * consumer(void * ptr){
+    
     while (numOfFiles > 0 || pool.count > 0) {
 
         string path = obtain(&pool);
-        cout << "consumer: " << path << endl;
-       
+        //cout << "consumer: " << path << endl;
+        
+        pthread_mutex_lock(&mutexRead);
         readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
-        // usleep(500);
+        pthread_mutex_unlock(&mutexRead);
+
         pthread_cond_signal(&cond_nonfull);
-        //usleep(500000);
     }
     cout << "to paidi kanei exit " << endl;
     pthread_exit(0);
@@ -277,8 +279,8 @@ int main(int argc, char *argv[]){
     
     for (int i = 0; i < numThreads; i++){
        if (pthread_join(consumers[i],0) != 0){
-           perror("paidi tou baba\n");
-           exit(1);
+           perror("error waiting\n");
+           exit(EXIT_FAILURE);
        }
     }
     
