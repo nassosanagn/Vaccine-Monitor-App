@@ -97,7 +97,6 @@ void * producer(void * ptr){
 }
 
 void * consumer(void * ptr){
-    
     while (numOfFiles > 0 || pool.count > 0) {
 
         string path = obtain(&pool);
