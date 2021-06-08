@@ -6,7 +6,6 @@
 #include "ReadFile.h"
 #include "SocketFunctions.h"
 
-#include <stdio.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -16,7 +15,6 @@
 #include <errno.h>
 #include <fstream>
 
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <stdlib.h>
@@ -27,6 +25,124 @@
 
 using namespace std;
 
+struct CountryNode* countryListHead = NULL;     /* Create and initialize country list head */
+struct CitizenNode* citizenListHead = NULL;     /* Create and initialize citizen list head */
+struct VirusNode* virusListHead = NULL;         /* Create and initialize virus list head */
+
+int sizeOfBloom;
+int numThreads;
+int cyclicBufferSize;
+
+typedef struct {
+    string* data;
+    int start;
+    int end;
+    int count;
+} pool_t;
+
+int num_of_items = 0;
+string* countries; 
+string* txts;
+
+pthread_mutex_t mtx;
+pthread_mutex_t mtxRead;
+pthread_cond_t cond_nonempty;
+pthread_cond_t cond_readFile;
+pthread_cond_t cond_nonfull;
+pool_t pool;
+
+void initialize(pool_t * pool, int cyclicBufferSize) {
+    pool->data = new string[cyclicBufferSize];
+    pool->start = 0;
+    pool->end = -1;
+    pool->count = 0;
+}
+
+void place(pool_t * pool, string data) {
+    pthread_mutex_lock(&mtx);
+
+    while (pool->count >= cyclicBufferSize) {
+        printf(">> Found Buffer Full \n");
+        pthread_cond_wait(&cond_nonfull, &mtx);
+    }
+
+    pool->end = (pool->end + 1) % cyclicBufferSize;
+    pool->data[pool->end] = data;
+    pool->count++;
+    pthread_mutex_unlock(&mtx);
+}
+
+string obtain(pool_t * pool) {
+    string data = "";
+    pthread_mutex_lock(&mtx);
+
+    while (pool->count <= 0) {
+        printf(">> Found Buffer Empty \n");
+        pthread_cond_wait(&cond_nonempty, &mtx);
+    }
+    data = pool->data[pool->start];
+    pool->start = (pool->start + 1) % cyclicBufferSize;
+    pool->count--;
+    pthread_mutex_unlock(&mtx);
+    return data;
+}
+
+void * producer(void * ptr){
+    int index = 0;
+    while (num_of_items > 0) {
+        place(&pool, txts[index++]);
+        num_of_items--;
+        pthread_cond_signal(&cond_nonempty);
+    }
+    cout << "eftase sto exit producer" << endl;
+    return NULL;
+}
+
+void * consumer(void * ptr){
+    while (num_of_items > 0 || pool.count > 0) {
+
+        string path = obtain(&pool);
+        cout << "consumer: " << path << endl;
+       
+        readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
+        // usleep(500);
+        pthread_cond_signal(&cond_nonfull);
+        //usleep(500000);
+    }
+    cout << "to paidi kanei exit " << endl;
+    pthread_exit(0);
+}
+
+void* babasThread(void * ptr){
+
+    pthread_t *paidia;
+
+    initialize(&pool,cyclicBufferSize);
+    pthread_mutex_init(&mtx, 0);
+    pthread_mutex_init(&mtxRead, 0);
+    pthread_cond_init(&cond_nonempty, 0);
+    pthread_cond_init(&cond_nonfull, 0);
+    pthread_cond_init(&cond_readFile, 0);
+
+    paidia = new pthread_t[numThreads];
+
+    for (int i = 0; i < numThreads; i++){
+        pthread_create(&paidia[i], 0, consumer, 0);
+    }
+
+    producer(NULL);
+    
+    for (int i = 0; i < numThreads; i++){
+       if (pthread_join(paidia[i],0) != 0){
+           perror("paidi tou baba\n");
+           exit(1);
+       }
+    }
+    cout << "TELEIWNEI O BABAS STO THREAD \n";
+    pthread_exit(0);
+}
+
+
 int main(int argc, char *argv[]){
 
     if (argc != 12){                                 /* There must be at least 1 path */
@@ -34,7 +150,7 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    int port, numThreads, socketBufferSize, cyclicBufferSize, sizeOfBloom;
+    int port, socketBufferSize;
 
     for (int i = 1; i < argc - 1; i+=2){           /* Get all the arguments */
 
@@ -113,7 +229,7 @@ int main(int argc, char *argv[]){
     while (ss2 >> country)
         numOfCountries++;
     
-    string countries[numOfCountries];     
+    countries = new string[numOfCountries];    
 
     int i = 0;
     while (ss >> country) 
@@ -124,9 +240,32 @@ int main(int argc, char *argv[]){
     struct dirent *counter;
     DIR *countryDir;
 
-    struct CountryNode* countryListHead = NULL;     /* Create and initialize country list head */
-    struct CitizenNode* citizenListHead = NULL;     /* Create and initialize citizen list head */
-    struct VirusNode* virusListHead = NULL;         /* Create and initialize virus list head */
+    /* -------------------------------- threads -------------------------------- */
+
+    pthread_t cons;
+    pthread_t babasThr;
+
+    for (int i = 0; i < numOfCountries; i++){           /* For each country (or each file) */
+
+        /* Open country directory */
+        countryDir = opendir(countries[i].c_str());
+        if (ENOENT == errno){
+            perror("Couldn't open country directory");
+            exit(EXIT_FAILURE);
+        }
+    
+        while ((counter = readdir(countryDir)) != NULL){       /* For each .txt file inside CountryFileName */
+        
+            if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
+                continue;
+
+            num_of_items++;
+        }
+        rewinddir(countryDir);
+    }
+
+    txts = new string[num_of_items];
+    int counter2 = 0;
 
     for (int i = 0; i < numOfCountries; i++){            /* For each country (or each file) */
 
@@ -136,16 +275,23 @@ int main(int argc, char *argv[]){
             perror("Couldn't open country directory");
             exit(EXIT_FAILURE);
         }
-
+    
         while ((counter = readdir(countryDir)) != NULL){       /* For each .txt file inside CountryFileName */
         
             if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
                 continue;
 
-            readFile(countries[i] + "/" + counter->d_name, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
+            txts[counter2++] = countries[i] + "/" + counter->d_name;
         }
         rewinddir(countryDir);
     }
+
+    cout << "o arithmos twn txt: " << num_of_items << endl;
+    pthread_create(&babasThr, 0, babasThread, 0);
+    pthread_join(babasThr, 0);
+    cout << "TELEIWSW O BABAS\n";
+
+    /* ---------------------------------------------------------------- */
 
     int numOfViruses = VirusListCount(virusListHead);            /* Get the number of viruses (equals with the number of bloom filters) */
     sendInt(newSocket, numOfViruses);                         /* Send the number of viruses (equals with the number of bloom filters) */
@@ -285,7 +431,6 @@ int main(int argc, char *argv[]){
             // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
 
             // logFile.close();
-
 
             close(newSocket);
 
