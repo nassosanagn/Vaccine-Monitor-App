@@ -40,12 +40,12 @@ typedef struct {
     int count;
 } pool_t;
 
-int num_of_items = 0;
+int numOfFiles = 0;
 string* countries; 
 string* txts;
 
-pthread_mutex_t mtx;
-pthread_mutex_t mtxRead;
+pthread_mutex_t mutex;
+pthread_mutex_t mutexRead;
 pthread_cond_t cond_nonempty;
 pthread_cond_t cond_readFile;
 pthread_cond_t cond_nonfull;
@@ -59,39 +59,37 @@ void initialize(pool_t * pool, int cyclicBufferSize) {
 }
 
 void place(pool_t * pool, string data) {
-    pthread_mutex_lock(&mtx);
+    pthread_mutex_lock(&mutex);
 
     while (pool->count >= cyclicBufferSize) {
-        printf(">> Found Buffer Full \n");
-        pthread_cond_wait(&cond_nonfull, &mtx);
+        pthread_cond_wait(&cond_nonfull, &mutex);
     }
 
     pool->end = (pool->end + 1) % cyclicBufferSize;
     pool->data[pool->end] = data;
     pool->count++;
-    pthread_mutex_unlock(&mtx);
+    pthread_mutex_unlock(&mutex);
 }
 
 string obtain(pool_t * pool) {
     string data = "";
-    pthread_mutex_lock(&mtx);
+    pthread_mutex_lock(&mutex);
 
     while (pool->count <= 0) {
-        printf(">> Found Buffer Empty \n");
-        pthread_cond_wait(&cond_nonempty, &mtx);
+        pthread_cond_wait(&cond_nonempty, &mutex);
     }
     data = pool->data[pool->start];
     pool->start = (pool->start + 1) % cyclicBufferSize;
     pool->count--;
-    pthread_mutex_unlock(&mtx);
+    pthread_mutex_unlock(&mutex);
     return data;
 }
 
 void * producer(void * ptr){
     int index = 0;
-    while (num_of_items > 0) {
+    while (numOfFiles > 0) {
         place(&pool, txts[index++]);
-        num_of_items--;
+        numOfFiles--;
         pthread_cond_signal(&cond_nonempty);
     }
     cout << "eftase sto exit producer" << endl;
@@ -99,7 +97,7 @@ void * producer(void * ptr){
 }
 
 void * consumer(void * ptr){
-    while (num_of_items > 0 || pool.count > 0) {
+    while (numOfFiles > 0 || pool.count > 0) {
 
         string path = obtain(&pool);
         cout << "consumer: " << path << endl;
@@ -112,36 +110,6 @@ void * consumer(void * ptr){
     cout << "to paidi kanei exit " << endl;
     pthread_exit(0);
 }
-
-void* babasThread(void * ptr){
-
-    pthread_t *paidia;
-
-    initialize(&pool,cyclicBufferSize);
-    pthread_mutex_init(&mtx, 0);
-    pthread_mutex_init(&mtxRead, 0);
-    pthread_cond_init(&cond_nonempty, 0);
-    pthread_cond_init(&cond_nonfull, 0);
-    pthread_cond_init(&cond_readFile, 0);
-
-    paidia = new pthread_t[numThreads];
-
-    for (int i = 0; i < numThreads; i++){
-        pthread_create(&paidia[i], 0, consumer, 0);
-    }
-
-    producer(NULL);
-    
-    for (int i = 0; i < numThreads; i++){
-       if (pthread_join(paidia[i],0) != 0){
-           perror("paidi tou baba\n");
-           exit(1);
-       }
-    }
-    cout << "TELEIWNEI O BABAS STO THREAD \n";
-    pthread_exit(0);
-}
-
 
 int main(int argc, char *argv[]){
 
@@ -242,9 +210,6 @@ int main(int argc, char *argv[]){
 
     /* -------------------------------- threads -------------------------------- */
 
-    pthread_t cons;
-    pthread_t babasThr;
-
     for (int i = 0; i < numOfCountries; i++){           /* For each country (or each file) */
 
         /* Open country directory */
@@ -259,12 +224,13 @@ int main(int argc, char *argv[]){
             if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
                 continue;
 
-            num_of_items++;
+            numOfFiles++;
         }
         rewinddir(countryDir);
     }
+    closedir(countryDir);
 
-    txts = new string[num_of_items];
+    txts = new string[numOfFiles];
     int counter2 = 0;
 
     for (int i = 0; i < numOfCountries; i++){            /* For each country (or each file) */
@@ -285,12 +251,37 @@ int main(int argc, char *argv[]){
         }
         rewinddir(countryDir);
     }
+    closedir(countryDir);
 
-    cout << "o arithmos twn txt: " << num_of_items << endl;
-    pthread_create(&babasThr, 0, babasThread, 0);
-    pthread_join(babasThr, 0);
-    cout << "TELEIWSW O BABAS\n";
+    cout << "o arithmos twn txt: " << numOfFiles << endl;
 
+    pthread_t consumers[numThreads];       /* array with the threads */
+
+    initialize(&pool,cyclicBufferSize);
+    pthread_mutex_init(&mutex, 0);
+
+    pthread_mutex_init(&mutexRead, 0);
+
+    pthread_cond_init(&cond_nonempty, 0);
+    pthread_cond_init(&cond_nonfull, 0);
+
+    pthread_cond_init(&cond_readFile, 0);
+
+    //consumers = new pthread_t[numThreads];
+
+    for (int i = 0; i < numThreads; i++){
+        pthread_create(&consumers[i], 0, consumer, 0);
+    }
+
+    producer(NULL);
+    
+    for (int i = 0; i < numThreads; i++){
+       if (pthread_join(consumers[i],0) != 0){
+           perror("paidi tou baba\n");
+           exit(1);
+       }
+    }
+    
     /* ---------------------------------------------------------------- */
 
     int numOfViruses = VirusListCount(virusListHead);            /* Get the number of viruses (equals with the number of bloom filters) */

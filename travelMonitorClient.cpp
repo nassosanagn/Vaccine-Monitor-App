@@ -105,20 +105,21 @@ int main(int argc, char *argv[]){
             countCountries = 0;
     }
     rewinddir(inputDIR);
+    closedir(inputDIR);     /* close the input directory */
 
     int pid;
     for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
 
         if ((pid = fork()) == 0){
             
+            string allCountries = getAllCountries(monitorInfo[i/2].countryListHead);
+            cout << "Oles oi xwres einai: " << allCountries.c_str() << endl; 
+
             string tempPort = to_string((PORT + i/2));
             string tempNumThreads = to_string(numThreads);
             string tempSocketBufferSize = to_string(socketBufferSize);
             string tempCyclicBufferSize = to_string(cyclicBufferSize);
             string tempSizeOfBloom = to_string(sizeOfBloom);
-
-            string allCountries = getAllCountries(monitorInfo[i/2].countryListHead);
-            cout << "Oles oi xwres einai: " << allCountries.c_str() << endl; 
 
             const char* args[] = {"./monitorServer", "-p", tempPort.c_str(), "-t", tempNumThreads.c_str(), "-b", tempSocketBufferSize.c_str(), "-c", tempCyclicBufferSize.c_str(),
             "-s", tempSizeOfBloom.c_str() , allCountries.c_str() , NULL};
@@ -133,7 +134,7 @@ int main(int argc, char *argv[]){
             monitorInfo[i/2].monitorId = pid;
         }
     }
-    
+       
     /* ------------------------------ SOCKETS ------------------------------ */
 
     for (int i = 0; i < numMonitors; i++){
