@@ -4,7 +4,7 @@ int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, In
 int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                               /* Command 2 */
 int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead);                    /* Command 3 */
 int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]);                                             /* Command 4 */                             
-int exit(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                                      /* Command 5 */   
+int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead);                                                      /* Command 5 */   
 
 int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
 
@@ -40,7 +40,7 @@ int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorI
 
   }else if (InputWords[0].compare("/exit") == 0){                             /* Command 5 - /exit */
 
-    return exit(InputWords,numMonitors,monitorInfo,bloomListHead);
+    return exit(InputWords,numMonitors,socketBufferSize ,monitorInfo,bloomListHead);
   
   }else{                                                            /*  ERROR in commands */
     cout << "ERROR this command is not valid" << endl; }
@@ -280,13 +280,17 @@ int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBuff
   return 1;
 }
 /* Command 5 - /exit */
-int exit(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead){
+int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead){
 
   /* There must be no other arguments => only eixt */
   if ((InputWords[1].compare("\0") != 0)){
     cout << "ERROR in command /exit" << endl;
     return 0;
   }
+
+  for (int i = 0; i < numMonitors; i++)
+    sendString(monitorInfo[i].socketFd, "/exit", socketBufferSize);    
+
 
   BloomListDelete(&bloomListHead);
 

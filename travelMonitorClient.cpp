@@ -8,6 +8,7 @@
 #include "bloomList.h"
 #include "Commands.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <fstream>
 #include <dirent.h>
@@ -19,7 +20,7 @@
 #include <errno.h>
 #include <netdb.h> /* gethostbyaddr */
 
-#define PORT 9028
+#define PORT 9000
 
 using namespace std;
 
@@ -36,19 +37,17 @@ string inputDir;
 
 NumOfRequests req;
 
-void handle_sigint_parent(int sig);
-
 int main(int argc, char *argv[]){
 
     if (argc != 13){
         perror("Invalid number of arguments");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     int cyclicBufferSize = 0;
     int numThreads = 0;
     
-    for (int i = 1; i < argc; i = i + 2){           /* Get all the arguments */
+    for (int i = 1; i < argc; i+=2){           /* Get all the arguments */
 
         if (strcmp(argv[i],"-m") == 0)              /* Get the number of monitors */
             numMonitors = stoi(argv[i+1]);
@@ -74,9 +73,6 @@ int main(int argc, char *argv[]){
         } 
     }
 
-    signal(SIGINT,  handle_sigint_parent);
-    signal(SIGQUIT, handle_sigint_parent);
-    
     paths = new string[2 * numMonitors];
     monitorInfo  = new Info[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
 
@@ -86,6 +82,29 @@ int main(int argc, char *argv[]){
         perror("Couldn't open input directory");
         exit(EXIT_FAILURE);
     }
+
+    struct dirent *counter;
+    int countCountries = 0;
+
+    while ((counter = readdir(inputDIR)) != NULL){    
+        
+        if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
+            continue;
+    
+        string directory = counter->d_name;
+
+        /* Create the list with the countries */
+        if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
+          CountryListPush(&countryListHead, directory);
+        }
+
+        CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
+        countCountries++;
+
+        if (countCountries == numMonitors)
+            countCountries = 0;
+    }
+    rewinddir(inputDIR);
 
     int pid;
     for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
@@ -98,10 +117,13 @@ int main(int argc, char *argv[]){
             string tempCyclicBufferSize = to_string(cyclicBufferSize);
             string tempSizeOfBloom = to_string(sizeOfBloom);
 
-            const char* args[] = {"./Monitor", "-p", tempPort.c_str(), "-t", tempNumThreads.c_str(), "-b", tempSocketBufferSize.c_str(), "-c", tempCyclicBufferSize.c_str(),
-            "-s", tempSizeOfBloom.c_str() , "path1" , NULL};
+            string allCountries = getAllCountries(monitorInfo[i/2].countryListHead);
+            cout << "Oles oi xwres einai: " << allCountries.c_str() << endl; 
 
-            if (execvp("./Monitor", (char* const*) args) == -1){
+            const char* args[] = {"./monitorServer", "-p", tempPort.c_str(), "-t", tempNumThreads.c_str(), "-b", tempSocketBufferSize.c_str(), "-c", tempCyclicBufferSize.c_str(),
+            "-s", tempSizeOfBloom.c_str() , allCountries.c_str() , NULL};
+
+            if (execvp("./monitorServer", (char* const*) args) == -1){
                 cout << "Failed execvp!" << endl;
                 return 0;
             }
@@ -111,7 +133,7 @@ int main(int argc, char *argv[]){
             monitorInfo[i/2].monitorId = pid;
         }
     }
-      
+    
     /* ------------------------------ SOCKETS ------------------------------ */
 
     for (int i = 0; i < numMonitors; i++){
@@ -119,22 +141,22 @@ int main(int argc, char *argv[]){
         int sock = 0;
         int connectStatus;
         struct sockaddr_in serverAddr;
+        char hostname[1024];
+        struct hostent* h;
 
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0){
             printf("\n Socket creation error \n");
             return -1;
         }
 
-        // char hostname[1024];
-        // hostname[1023] = '\0';
-        // gethostname(hostname, 1023);
-        // printf("Hostname: %s\n", hostname);
-        // struct hostent* h;
-        // h = gethostbyname(hostname);
-        // printf("h_name: %s\n", h->h_name);
+        hostname[1023] = '\0';
+        gethostname(hostname, 1023);
+        h = gethostbyname(hostname);
+        //printf("Hostname: %s\n", hostname);
+        //printf("h_name: %s\n", h->h_name);
 
         memset(&serverAddr, '\0', sizeof(serverAddr));
-        // memcpy(&serverAddr.sin_addr, h->h_addr, h->h_length);
+        memcpy(&serverAddr.sin_addr, h->h_addr, h->h_length);
 
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons((PORT+i));
@@ -150,37 +172,8 @@ int main(int argc, char *argv[]){
 
     for (int i = 0; i < numMonitors; i++)
         sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);      /* Send the input directory */
-    
-    struct dirent *counter;
-    int countCountries = 0;
 
-    while ((counter = readdir(inputDIR)) != NULL){      /* Read the file and count the countries */
-        
-        if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
-            continue;
-    
-        string directory = counter->d_name;
-        const char * directoryToSend = directory.c_str();
-
-        sendString(monitorInfo[countCountries].socketFd, directoryToSend, socketBufferSize);
-
-        /* Create the list with the countries */
-        if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
-          CountryListPush(&countryListHead, directory);
-        }
-
-        CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
-        countCountries++;
-
-        if (countCountries == numMonitors)
-            countCountries = 0;
-    }
-    rewinddir(inputDIR);
-
-    int endFlag = -1;
-    for (int i = 0; i < numMonitors; i++){              /* Read in child (travelMonitor) until endFlag = -1 */
-        sendInt(monitorInfo[i].socketFd,endFlag);
-    }
+    /* --------------------------------------------------------------------------------------------*/
 
     /* Read the bloom filters */
     fd_set readFdsSet;
@@ -243,19 +236,9 @@ int main(int argc, char *argv[]){
 
     }while (!Commands(sizeOfBloom, numMonitors, socketBufferSize, monitorInfo, bloomListHead, &req));
 
-    kill(getpid(), SIGINT);
+    //kill(getpid(), SIGINT);
     cout << "Program completed successfully." << endl;
-    return 0;
-}
 
-void handle_sigint_parent(int sig){
-
-    //suicide = true;
-
-    /* Send SIGKILL signal to each monitor => command "/exit" was used */
-    for (int i = 0; i < numMonitors; i++)
-        kill(monitorInfo[i].monitorId, SIGKILL);
-    
     /* Wait for each child to finish */
     for (int i = 0; i < numMonitors; i++)
         waitpid(monitorInfo[i].monitorId, NULL, 0);
@@ -275,4 +258,6 @@ void handle_sigint_parent(int sig){
     // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
     // logFile.close();                                                    /* Close the file */
+
+    return 0;
 }

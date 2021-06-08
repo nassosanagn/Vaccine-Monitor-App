@@ -15,8 +15,6 @@ void CountryListPrint(CountryNode * head){
 
 void CountryListPrintInFile(CountryNode * head, ofstream& logFile){
 
-    //ofstream logFile;
-   //ogFile.open(fileName);
     CountryNode * current = head;
 
     int i = 1;
@@ -24,7 +22,6 @@ void CountryListPrintInFile(CountryNode * head, ofstream& logFile){
         logFile << current->country << endl;
         current = current->next;
     }
-    //logFile.close();
 }
 
 /* Adding an item to the beginning of the list (pushing to the list) */
@@ -89,4 +86,19 @@ void CountryDeleteList(CountryNode** head){
         current = current->next;
         delete temp;
     } 
+}
+
+string getAllCountries(CountryNode* head){
+
+    CountryNode* current = head;  
+    string allCountries = "";
+    
+    while (current != NULL) {  
+
+        allCountries = allCountries + " " + current->country;
+        current = current->next;  
+    }  
+
+    return allCountries;  
+
 }

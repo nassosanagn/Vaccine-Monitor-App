@@ -1,4 +1,4 @@
-./travelMonitorClient -m 1 -b 1000 -c 1000 -s 10000 -i ./countries -t 1
+./travelMonitorClient -m 2 -b 100 -c 1000 -s 10000 -i ./countries -t 1
 
 /travelRequest 1410 5-9-2000 Afghanistan Albania Rabies
 /searchVaccinationStatus 1410

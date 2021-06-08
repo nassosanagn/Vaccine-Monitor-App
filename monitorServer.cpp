@@ -22,47 +22,50 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
-#include <netdb.h> /* gethostbyaddr */
+#include <netdb.h>
+#include <pthread.h>
 
 using namespace std;
 
-int newSocket;
-
-struct CountryNode* countryListHead = NULL;     /* Create and initialize country list head */
-struct CitizenNode* citizenListHead = NULL;     /* Create and initialize citizen list head */
-struct VirusNode* virusListHead = NULL;         /* Create and initialize virus list head */
-
-int acceptedReq = 0;
-int rejectedReq = 0;
-int totalReq = 0;
-
-/* Read from travelMonitor */
-// int socketBufferSize;
-// int sizeOfBloom;
-// string inputDir;
-
-void handler_SIGINT_and_SIGQUIT(int sig);
-
 int main(int argc, char *argv[]){
 
-    if (argc < 12){                                 /* There must be at least 1 path */
+    if (argc != 12){                                 /* There must be at least 1 path */
         perror("Invalid number of arguments");
         exit(EXIT_FAILURE);
     }
 
-    signal(SIGINT,  handler_SIGINT_and_SIGQUIT);                      /* catch SIGINT signal   */
-    signal(SIGQUIT, handler_SIGINT_and_SIGQUIT);                      /* catch SIGQUIT signal   */
+    int port, numThreads, socketBufferSize, cyclicBufferSize, sizeOfBloom;
 
-    int port = atoi(argv[2]);
-    int numThreads = atoi(argv[4]);
-    int socketBufferSize  = atoi(argv[6]);   
-    int cyclicBufferSize  = atoi(argv[8]);                                      
-    int sizeOfBloom = atoi(argv[10]);                      
+    for (int i = 1; i < argc - 1; i+=2){           /* Get all the arguments */
 
+        if (strcmp(argv[i],"-p") == 0)              /* Get the port number */
+            port = stoi(argv[i+1]);
+        
+        else if (strcmp(argv[i],"-b") == 0)               /* Get the size of the socketBuffer */
+            socketBufferSize = stoi(argv[i+1]);
+        
+        else if (strcmp(argv[i],"-c") == 0)                   /* Get the size of the CyclicBuffer */
+            cyclicBufferSize = stoi(argv[i+1]);
+
+        else if (strcmp(argv[i],"-s") == 0)                   /* Get the size of the bloom */
+            sizeOfBloom = stoi(argv[i+1]);
+        
+        else if (strcmp(argv[i],"-t") == 0)                   /* Get the number of Threads */
+            numThreads = stoi(argv[i+1]);
+    
+        else{
+           perror("Error getting the arguments");
+           exit(EXIT_FAILURE);
+        } 
+    }
+    string allCountries(argv[11]);  
+
+    cout << "Oi xwres 2 einai: " << allCountries << endl;
     cout << "ELABA TO PORT: " << port << endl;
 
     /* ------------------------------ SOCKETS ------------------------------ */
 
+    int newSocket;
     int server_fd, valread;
     struct sockaddr_in address;
     int opt = 1;
@@ -100,54 +103,30 @@ int main(int argc, char *argv[]){
     cout << "to buffer size einai: " << socketBufferSize << endl;
     cout << "to input dir onoma einai: " << inputDir << endl;
 
-    string allCountries = "";       /* A string that will contain all countries seperated by " " */                               
-    int numOfCountries = 0;         /* The total number of countries */
-    do{
-        
-        int sizeOfCountryFile = readInt(newSocket);
-                
-        if (sizeOfCountryFile == -1)                   /* endFlag located => stop reading */
-            break;
-
-        char countryFileName[sizeOfCountryFile];
-        int counter = 0;
-
-        for (int i = 0; i < sizeOfCountryFile/socketBufferSize; i++){
-            
-            if (read(newSocket, &(countryFileName[counter]), socketBufferSize) == -1){
-                perror("Couldnt write strSize");
-                exit(EXIT_FAILURE);
-            }
-            counter += socketBufferSize;
-        }
-
-        if (counter < sizeOfCountryFile){     /* write the remaining bytes */
-                    
-            int tempBuff = sizeOfCountryFile - counter;       /* tempBuff will always be smaller that the socketBufferSize */
-
-            if (read(newSocket, &(countryFileName[counter]), tempBuff) == -1){
-                perror("Couldnt write strSize");
-                exit(EXIT_FAILURE);
-            }
-        }
-        countryFileName[sizeOfCountryFile] = '\0';
-
-        numOfCountries++;
-        string temp(countryFileName);
-        allCountries = allCountries + " " + temp;
-
-    }while(1);
-
     stringstream ss(allCountries);
+    stringstream ss2(allCountries);
     string country;
-    string countries[numOfCountries];       
+
+    int numOfCountries = 0;
+
+    /* count the countries */
+    while (ss2 >> country)
+        numOfCountries++;
+    
+    string countries[numOfCountries];     
 
     int i = 0;
     while (ss >> country) 
         countries[i++] = inputDir + "/" + country;
+
+    cout << "numOfCountries: " << numOfCountries << endl;
        
     struct dirent *counter;
     DIR *countryDir;
+
+    struct CountryNode* countryListHead = NULL;     /* Create and initialize country list head */
+    struct CitizenNode* citizenListHead = NULL;     /* Create and initialize citizen list head */
+    struct VirusNode* virusListHead = NULL;         /* Create and initialize virus list head */
 
     for (int i = 0; i < numOfCountries; i++){            /* For each country (or each file) */
 
@@ -178,6 +157,10 @@ int main(int argc, char *argv[]){
         sendString(newSocket,virusName.c_str(), socketBufferSize);                                                /* Send the virus name */
         sendBloom(newSocket, VirusGetBloomArray(virusListHead,virusName), sizeOfBloom, socketBufferSize);            /* Send the bloom filter */
     }
+    
+    int acceptedReq = 0;
+    int rejectedReq = 0;
+    int totalReq = 0;
 
     while(1){       /* While the user is giving commands */
 
@@ -189,7 +172,7 @@ int main(int argc, char *argv[]){
             struct CitizenNode *tempCit;
             int foundFlag = -1;
 
-            if (CitizenListSearch(citizenListHead,citizenId,&tempCit))      /* Check if citizen Id is valis (exists in CitizenList) */
+            if (CitizenListSearch(citizenListHead,citizenId,&tempCit))      /* Check if citizen Id is valid (exists in CitizenList) */
                 foundFlag = 1;
             
             sendInt(newSocket,foundFlag);
@@ -289,33 +272,29 @@ int main(int argc, char *argv[]){
             }
 
             cout << "New vaccination records added successfully." << endl;
+
+        }else if (command.compare("/exit") == 0){
+
+            // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
+            // ofstream logFile;
+            // logFile.open(logFileStr);                                   /* Create and open the file */
+
+            // CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
+            // logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
+            // logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
+            // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
+
+            // logFile.close();
+
+
+            close(newSocket);
+
+            /* Delete the lists */
+            VirusDeleteList(&virusListHead);
+            CountryDeleteList(&countryListHead);
+            CitizenDeleteList(&citizenListHead);
+            exit(0);
         }
     }
     return 0;
-}
-
-
-/* ---------------------------------------------------------------- */
-
-
-void handler_SIGINT_and_SIGQUIT(int sig){
-
-    // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
-    // ofstream logFile;
-    // logFile.open(logFileStr);                                   /* Create and open the file */
-
-    // CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
-    // logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
-    // logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
-    // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
-
-    // logFile.close();
-
-    close(newSocket);
-
-    /* Delete the lists */
-    VirusDeleteList(&virusListHead);
-    CountryDeleteList(&countryListHead);
-    CitizenDeleteList(&citizenListHead);
-    exit(0);
 }
