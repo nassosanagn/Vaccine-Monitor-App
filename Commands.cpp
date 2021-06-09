@@ -291,7 +291,6 @@ int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monito
   for (int i = 0; i < numMonitors; i++)
     sendString(monitorInfo[i].socketFd, "/exit", socketBufferSize);    
 
-
   BloomListDelete(&bloomListHead);
 
   for (int i = 0; i < numMonitors; i++)

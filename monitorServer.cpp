@@ -42,14 +42,20 @@ typedef struct {
 
 int numOfFiles = 0;
 string* countries; 
-string* txts;
+string* txtFiles;
 
 pthread_mutex_t mutex;
+pthread_mutex_t mutex3;
 pthread_mutex_t mutexRead;
+
 pthread_cond_t cond_nonempty;
-pthread_cond_t cond_readFile;
 pthread_cond_t cond_nonfull;
+
+pthread_cond_t cond_readFile;
+
 pool_t pool;
+
+int readFile2(string fileName, int bloomSize, CitizenNode** CitizenListHead, VirusNode** VirusListHead, CountryNode** CountryListHead);
 
 void initialize(pool_t * pool, int cyclicBufferSize) {
     pool->data = new string[cyclicBufferSize];
@@ -88,11 +94,12 @@ string obtain(pool_t * pool) {
 void * producer(void * ptr){
     int index = 0;
     while (numOfFiles > 0) {
-        place(&pool, txts[index++]);
+        place(&pool, txtFiles[index++]);
         numOfFiles--;
         pthread_cond_signal(&cond_nonempty);
     }
-    cout << "eftase sto exit producer" << endl;
+    //pthread_cond_signal(&cond_readFile);
+   
     return NULL;
 }
 
@@ -103,12 +110,17 @@ void * consumer(void * ptr){
         //cout << "consumer: " << path << endl;
         
         pthread_mutex_lock(&mutexRead);
+
         readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
+        
+        // while (isReady == 0) {
+        //     cout << "perimeneiii 11111" << endl;
+        //     pthread_cond_wait(&cond_readFile, &mutexRead);
+        // }
         pthread_mutex_unlock(&mutexRead);
 
         pthread_cond_signal(&cond_nonfull);
     }
-    cout << "to paidi kanei exit " << endl;
     pthread_exit(0);
 }
 
@@ -145,19 +157,24 @@ int main(int argc, char *argv[]){
     }
     string allCountries(argv[11]);  
 
-    cout << "Oi xwres 2 einai: " << allCountries << endl;
     cout << "ELABA TO PORT: " << port << endl;
 
     /* ------------------------------ SOCKETS ------------------------------ */
 
     int newSocket;
-    int server_fd, valread;
-    struct sockaddr_in address;
+    int sock;
     int opt = 1;
+    struct sockaddr_in address;
     int addrlen = sizeof(address);
        
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0){
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0){
         perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    /* So the address can be use again immediately */
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))){
+        perror("setsockopt");
         exit(EXIT_FAILURE);
     }
     
@@ -165,28 +182,24 @@ int main(int argc, char *argv[]){
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
        
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0){
+    if (bind(sock, (struct sockaddr *)&address, sizeof(address)) < 0){
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 1) < 0){
-        perror("listen");
+    if (listen(sock, 1) < 0){
+        perror("listen failed");
         exit(EXIT_FAILURE);
     }
 
-    if ((newSocket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-        perror("accept");
+    if ((newSocket = accept(sock, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+        perror("accept failed");
         exit(EXIT_FAILURE);
     }
 
     /* ------------------------------ END OF SOCKETS ------------------------------ */
 
     string inputDir = readString(newSocket,socketBufferSize);            /* Get the name of the inputDir from travelMonitor */
-
-    cout << "to sizeOfBloom einai: " << sizeOfBloom << endl;
-    cout << "to buffer size einai: " << socketBufferSize << endl;
-    cout << "to input dir onoma einai: " << inputDir << endl;
 
     stringstream ss(allCountries);
     stringstream ss2(allCountries);
@@ -203,8 +216,6 @@ int main(int argc, char *argv[]){
     int i = 0;
     while (ss >> country) 
         countries[i++] = inputDir + "/" + country;
-
-    cout << "numOfCountries: " << numOfCountries << endl;
        
     struct dirent *counter;
     DIR *countryDir;
@@ -231,7 +242,7 @@ int main(int argc, char *argv[]){
     }
     closedir(countryDir);
 
-    txts = new string[numOfFiles];
+    txtFiles = new string[numOfFiles];
     int counter2 = 0;
 
     for (int i = 0; i < numOfCountries; i++){            /* For each country (or each file) */
@@ -248,33 +259,36 @@ int main(int argc, char *argv[]){
             if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
                 continue;
 
-            txts[counter2++] = countries[i] + "/" + counter->d_name;
+            txtFiles[counter2++] = countries[i] + "/" + counter->d_name;
         }
         rewinddir(countryDir);
     }
     closedir(countryDir);
 
-    cout << "o arithmos twn txt: " << numOfFiles << endl;
-
-    pthread_t consumers[numThreads];       /* array with the threads */
+    pthread_t* consumers;//[numThreads];       /* array with the threads */
 
     initialize(&pool,cyclicBufferSize);
     pthread_mutex_init(&mutex, 0);
-
+    pthread_mutex_init(&mutex3, 0);
     pthread_mutex_init(&mutexRead, 0);
 
     pthread_cond_init(&cond_nonempty, 0);
     pthread_cond_init(&cond_nonfull, 0);
 
-    pthread_cond_init(&cond_readFile, 0);
-
-    //consumers = new pthread_t[numThreads];
+    consumers = new pthread_t[numThreads];
 
     for (int i = 0; i < numThreads; i++){
         pthread_create(&consumers[i], 0, consumer, 0);
     }
 
+    //pthread_mutex_lock(&mutex3);
     producer(NULL);
+  
+    // pthread_mutex_unlock(&mutex3);
+
+    // while (numOfFiles > 0){
+    //     pthread_cond_wait(&cond_readFile, &mutex3);
+    // }
     
     for (int i = 0; i < numThreads; i++){
        if (pthread_join(consumers[i],0) != 0){
@@ -282,6 +296,7 @@ int main(int argc, char *argv[]){
            exit(EXIT_FAILURE);
        }
     }
+
     
     /* ---------------------------------------------------------------- */
 
@@ -317,6 +332,7 @@ int main(int argc, char *argv[]){
             
             if (foundFlag == 1){
 
+                cout << endl << "to brhka gia port: " << port << endl;
                 int age = tempCit->citizen.age;
                 string firstName = tempCit->citizen.firstName;
                 string lastName = tempCit->citizen.lastName;
@@ -330,7 +346,7 @@ int main(int argc, char *argv[]){
                 VirusNode* current = virusListHead;
                 VInfoNode* found;
                 CitizenNode* cit;
-
+  
                 while (current != NULL){                                            /* For each virus => Search the vaccinated skip list */
                     if (current->Vaccinated->SkipListSearch(citizenId,&cit)){        /* If person is vaccinated => send vaccination info */
                         
@@ -425,6 +441,7 @@ int main(int argc, char *argv[]){
             // logFile.close();
 
             close(newSocket);
+            //close(sock);
 
             /* Delete the lists */
             VirusDeleteList(&virusListHead);

@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <netdb.h> /* gethostbyaddr */
 
-#define PORT 9030
+#define PORT 9000
 
 using namespace std;
 
@@ -73,8 +73,6 @@ int main(int argc, char *argv[]){
         } 
     }
 
-    paths = new string[2 * numMonitors];
-    monitorInfo  = new Info[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
 
     /* Open directory */
     DIR *inputDIR = opendir(inputDir.c_str());
@@ -84,7 +82,27 @@ int main(int argc, char *argv[]){
     }
 
     struct dirent *counter;
+    int numOfCountries = 0;
+
+    while ((counter = readdir(inputDIR)) != NULL){    
+        
+        if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
+            continue;
+    
+        numOfCountries++;
+    }
+    rewinddir(inputDIR);
+    //closedir(inputDIR);     /* close the input directory */
+
+    
     int countCountries = 0;
+
+    if (numMonitors > numOfCountries){
+        numMonitors = numOfCountries;
+    }
+
+    paths = new string[2 * numMonitors];
+    monitorInfo  = new Info[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
 
     while ((counter = readdir(inputDIR)) != NULL){    
         
@@ -106,6 +124,9 @@ int main(int argc, char *argv[]){
     }
     rewinddir(inputDIR);
     closedir(inputDIR);     /* close the input directory */
+
+    cout << "Oi xwres einai: " << numOfCountries << endl;
+    cout << "ta numMonitors einai: " << numMonitors << endl;
 
     int pid;
     for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
@@ -133,6 +154,8 @@ int main(int argc, char *argv[]){
             monitorInfo[i/2].monitorId = pid;
         }
     }
+
+    cout << "ftanei edwwww \n";
        
     /* ------------------------------ SOCKETS ------------------------------ */
 
@@ -141,7 +164,8 @@ int main(int argc, char *argv[]){
         int sock = 0;
         int connectStatus;
         struct sockaddr_in serverAddr;
-        char hostname[1024];
+        string hostName;
+        
         struct hostent* h;
 
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -149,12 +173,10 @@ int main(int argc, char *argv[]){
             return -1;
         }
 
-        hostname[1023] = '\0';
-        gethostname(hostname, 1023);
-        h = gethostbyname(hostname);
-        //printf("Hostname: %s\n", hostname);
-        //printf("h_name: %s\n", h->h_name);
-
+        
+        gethostname(&hostName[0], 1023);
+        h = gethostbyname(&hostName[0]);
+    
         memset(&serverAddr, '\0', sizeof(serverAddr));
         memcpy(&serverAddr.sin_addr, h->h_addr, h->h_length);
 
@@ -244,7 +266,7 @@ int main(int argc, char *argv[]){
         waitpid(monitorInfo[i].monitorId, NULL, 0);
     
     /* Unlink the named pipes */
-    for (int i = 0; i < 2 * numMonitors; i++){
+    for (int i = 0; i < numMonitors; i++){
         close(monitorInfo[i].socketFd);
     }
 
@@ -261,3 +283,4 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
+
