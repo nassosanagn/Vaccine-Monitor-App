@@ -108,9 +108,8 @@ int readFile(string fileName, int bloomSize, CitizenNode** CitizenListHead, Viru
       /* Check if the same virus already exists for the citizen with this citizenId*/
       if (VInfoListSearch(found->citizen.citizenIDptr,vacInfo.virusName->virusName)){ /* Same id & same virus => ignore record */
 
-        //cout << "ERROR IN RECORD " << i++ << " WITH ID: " <<  vacInfo.citizenId << " AND VIRUS NAME: " << vacInfo.virusName->virusName << endl;
         delete vacInfo.dateVaccinated;      /* Record doesn't go in Vaccination Info List => delete date created */
-        continue;   /* Ignore the record */
+        continue;                           /* Ignore the record */
 
       }else{                                                        /* Same id but different virus */
         VInfoListPush(&(found->citizen.citizenIDptr), vacInfo);   /* Add to vaccination Info list for already existing citizen */

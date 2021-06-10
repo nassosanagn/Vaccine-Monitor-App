@@ -63,17 +63,17 @@ int main(int argc, char *argv[]){
         } 
     }
 
+    struct dirent *counter;
+    int numOfCountries = 0;
 
-    /* Open directory */
+    /* Open the input directory */
     DIR *inputDIR = opendir(inputDir.c_str());
     if (ENOENT == errno) {
         perror("Couldn't open input directory");
         exit(EXIT_FAILURE);
     }
 
-    struct dirent *counter;
-    int numOfCountries = 0;
-
+    /* get the total number of countries */
     while ((counter = readdir(inputDIR)) != NULL){    
         
         if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
@@ -82,16 +82,15 @@ int main(int argc, char *argv[]){
         numOfCountries++;
     }
     rewinddir(inputDIR);
-    //closedir(inputDIR);     /* close the input directory */
-
     
     int countCountries = 0;
 
+    /* if countries are less than the number of monitors => then only fork numOfCountries monitorServers (one country per monitorServer) */
     if (numMonitors > numOfCountries){
         numMonitors = numOfCountries;
     }
 
-    Info monitorInfo[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
+    Info monitorInfo[numMonitors];              /* Info array with socket fd, proccess id and a list of countries */
 
     while ((counter = readdir(inputDIR)) != NULL){    
         
@@ -113,9 +112,6 @@ int main(int argc, char *argv[]){
     }
     rewinddir(inputDIR);
     closedir(inputDIR);     /* close the input directory */
-
-    cout << "Oi xwres einai: " << numOfCountries << endl;
-    cout << "ta numMonitors einai: " << numMonitors << endl;
 
     int pid;
     for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
@@ -263,7 +259,7 @@ int main(int argc, char *argv[]){
     // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
     // logFile.close();                                                    /* Close the file */
-    
+
     cout << "Program completed successfully." << endl;
     return 0;
 }

@@ -52,65 +52,11 @@ pthread_cond_t cond_nonfull;
 
 pool_t pool;
 
-int readFile2(string fileName, int bloomSize, CitizenNode** CitizenListHead, VirusNode** VirusListHead, CountryNode** CountryListHead);
-
-void initialize(pool_t * pool, int cyclicBufferSize) {
-    pool->data = new string[cyclicBufferSize];
-    pool->start = 0;
-    pool->end = -1;
-    pool->count = 0;
-}
-
-void place(pool_t * pool, string data) {
-    pthread_mutex_lock(&mutex);
-
-    while (pool->count >= cyclicBufferSize) {
-        pthread_cond_wait(&cond_nonfull, &mutex);
-    }
-
-    pool->end = (pool->end + 1) % cyclicBufferSize;
-    pool->data[pool->end] = data;
-    pool->count++;
-    pthread_mutex_unlock(&mutex);
-}
-
-string obtain(pool_t * pool) {
-    string data = "";
-    pthread_mutex_lock(&mutex);
-
-    while (pool->count <= 0) {
-        pthread_cond_wait(&cond_nonempty, &mutex);
-    }
-    data = pool->data[pool->start];
-    pool->start = (pool->start + 1) % cyclicBufferSize;
-    pool->count--;
-    pthread_mutex_unlock(&mutex);
-    return data;
-}
-
-void * producer(void * ptr){
-    int index = 0;
-    while (numOfFiles > 0) {
-        place(&pool, txtFiles[index++]);
-        numOfFiles--;
-        pthread_cond_signal(&cond_nonempty);
-    }
-    return NULL;
-}
-
-void * consumer(void * ptr){
-    while (numOfFiles > 0 || pool.count > 0) {
-
-        string path = obtain(&pool);
-        
-        pthread_mutex_lock(&mutexRead);
-        readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
-        pthread_mutex_unlock(&mutexRead);
-
-        pthread_cond_signal(&cond_nonfull);
-    }
-    return NULL;
-}
+void initialize(pool_t * pool, int cyclicBufferSize);
+void place(pool_t * pool, string data);
+string obtain(pool_t * pool);
+void * producer(void * ptr);
+void * consumer(void * ptr);
 
 int main(int argc, char *argv[]){
 
@@ -143,26 +89,24 @@ int main(int argc, char *argv[]){
            exit(EXIT_FAILURE);
         } 
     }
-    string allCountries(argv[11]);  
 
-    cout << "ELABA TO PORT: " << port << endl;
+    string allCountries(argv[11]);  
 
     /* ------------------------------ SOCKETS ------------------------------ */
 
-    int newSocket;
-    int sock;
-    int opt = 1;
+    int sock, newSocket;
+    int option = 1;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
        
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == 0){
-        perror("socket failed");
+        perror("error in socket creation: ");
         exit(EXIT_FAILURE);
     }
 
     /* So the address can be use again immediately */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))){
-        perror("setsockopt");
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option))){
+        perror("error in setsockopt: ");
         exit(EXIT_FAILURE);
     }
     
@@ -171,17 +115,17 @@ int main(int argc, char *argv[]){
     address.sin_port = htons(port);
        
     if (bind(sock, (struct sockaddr *)&address, sizeof(address)) < 0){
-        perror("bind failed");
+        perror("error in bind: ");
         exit(EXIT_FAILURE);
     }
 
     if (listen(sock, 1) < 0){
-        perror("listen failed");
+        perror("error in listen: ");
         exit(EXIT_FAILURE);
     }
 
     if ((newSocket = accept(sock, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-        perror("accept failed");
+        perror("error in accept: ");
         exit(EXIT_FAILURE);
     }
 
@@ -430,4 +374,65 @@ int main(int argc, char *argv[]){
         }
     }
     return 0;
+}
+
+
+/* ---------------------------------------------------------------- */
+
+void initialize(pool_t * pool, int cyclicBufferSize) {
+    pool->data = new string[cyclicBufferSize];
+    pool->start = 0;
+    pool->end = -1;
+    pool->count = 0;
+}
+
+void place(pool_t * pool, string data) {
+    pthread_mutex_lock(&mutex);
+
+    while (pool->count >= cyclicBufferSize) {
+        pthread_cond_wait(&cond_nonfull, &mutex);
+    }
+
+    pool->end = (pool->end + 1) % cyclicBufferSize;
+    pool->data[pool->end] = data;
+    pool->count++;
+    pthread_mutex_unlock(&mutex);
+}
+
+string obtain(pool_t * pool) {
+    string data = "";
+    pthread_mutex_lock(&mutex);
+
+    while (pool->count <= 0) {
+        pthread_cond_wait(&cond_nonempty, &mutex);
+    }
+    data = pool->data[pool->start];
+    pool->start = (pool->start + 1) % cyclicBufferSize;
+    pool->count--;
+    pthread_mutex_unlock(&mutex);
+    return data;
+}
+
+void * producer(void * ptr){
+    int index = 0;
+    while (numOfFiles > 0) {
+        place(&pool, txtFiles[index++]);
+        numOfFiles--;
+        pthread_cond_signal(&cond_nonempty);
+    }
+    return NULL;
+}
+
+void * consumer(void * ptr){
+    while (numOfFiles > 0 || pool.count > 0) {
+
+        string path = obtain(&pool);
+        
+        pthread_mutex_lock(&mutexRead);
+        readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
+        pthread_mutex_unlock(&mutexRead);
+
+        pthread_cond_signal(&cond_nonfull);
+    }
+    return NULL;
 }
