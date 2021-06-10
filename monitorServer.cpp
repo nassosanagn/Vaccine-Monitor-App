@@ -45,13 +45,10 @@ string* countries;
 string* txtFiles;
 
 pthread_mutex_t mutex;
-pthread_mutex_t mutex3;
 pthread_mutex_t mutexRead;
 
 pthread_cond_t cond_nonempty;
 pthread_cond_t cond_nonfull;
-
-pthread_cond_t cond_readFile;
 
 pool_t pool;
 
@@ -98,8 +95,6 @@ void * producer(void * ptr){
         numOfFiles--;
         pthread_cond_signal(&cond_nonempty);
     }
-    //pthread_cond_signal(&cond_readFile);
-   
     return NULL;
 }
 
@@ -107,21 +102,14 @@ void * consumer(void * ptr){
     while (numOfFiles > 0 || pool.count > 0) {
 
         string path = obtain(&pool);
-        //cout << "consumer: " << path << endl;
         
         pthread_mutex_lock(&mutexRead);
-
         readFile(path, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
-        
-        // while (isReady == 0) {
-        //     cout << "perimeneiii 11111" << endl;
-        //     pthread_cond_wait(&cond_readFile, &mutexRead);
-        // }
         pthread_mutex_unlock(&mutexRead);
 
         pthread_cond_signal(&cond_nonfull);
     }
-    pthread_exit(0);
+    return NULL;
 }
 
 int main(int argc, char *argv[]){
@@ -265,38 +253,27 @@ int main(int argc, char *argv[]){
     }
     closedir(countryDir);
 
-    pthread_t* consumers;//[numThreads];       /* array with the threads */
+    pthread_t consumers[numThreads];       /* array with the threads */
 
     initialize(&pool,cyclicBufferSize);
     pthread_mutex_init(&mutex, 0);
-    pthread_mutex_init(&mutex3, 0);
     pthread_mutex_init(&mutexRead, 0);
 
     pthread_cond_init(&cond_nonempty, 0);
     pthread_cond_init(&cond_nonfull, 0);
 
-    consumers = new pthread_t[numThreads];
-
     for (int i = 0; i < numThreads; i++){
         pthread_create(&consumers[i], 0, consumer, 0);
     }
 
-    //pthread_mutex_lock(&mutex3);
     producer(NULL);
-  
-    // pthread_mutex_unlock(&mutex3);
-
-    // while (numOfFiles > 0){
-    //     pthread_cond_wait(&cond_readFile, &mutex3);
-    // }
     
     for (int i = 0; i < numThreads; i++){
-       if (pthread_join(consumers[i],0) != 0){
+       if (pthread_join(consumers[i], NULL) != 0){
            perror("error waiting\n");
            exit(EXIT_FAILURE);
        }
     }
-
     
     /* ---------------------------------------------------------------- */
 
@@ -439,9 +416,11 @@ int main(int argc, char *argv[]){
             // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
 
             // logFile.close();
+            delete(countries);
+            delete(txtFiles);
 
             close(newSocket);
-            //close(sock);
+            close(sock);
 
             /* Delete the lists */
             VirusDeleteList(&virusListHead);

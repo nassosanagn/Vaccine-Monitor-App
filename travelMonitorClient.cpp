@@ -27,16 +27,6 @@ using namespace std;
 struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
 struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
 
-int numMonitors;
-string* paths;
-Info* monitorInfo;                      /* Info array with read file descriptor , write fd and monitor id */
-
-int socketBufferSize = 0;
-int sizeOfBloom = 0;
-string inputDir;
-
-NumOfRequests req;
-
 int main(int argc, char *argv[]){
 
     if (argc != 13){
@@ -44,8 +34,8 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    int cyclicBufferSize = 0;
-    int numThreads = 0;
+    int numMonitors, socketBufferSize, cyclicBufferSize, sizeOfBloom, numThreads;
+    string inputDir;
     
     for (int i = 1; i < argc; i+=2){           /* Get all the arguments */
 
@@ -101,8 +91,7 @@ int main(int argc, char *argv[]){
         numMonitors = numOfCountries;
     }
 
-    paths = new string[2 * numMonitors];
-    monitorInfo  = new Info[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
+    Info monitorInfo[numMonitors];              /* Info array with read file descriptor , write fd and monitor id */
 
     while ((counter = readdir(inputDIR)) != NULL){    
         
@@ -170,7 +159,6 @@ int main(int argc, char *argv[]){
             printf("\n Socket creation error \n");
             return -1;
         }
-
         
         gethostname(&hostName[0], 1023);
         h = gethostbyname(&hostName[0]);
@@ -188,16 +176,15 @@ int main(int argc, char *argv[]){
         monitorInfo[i].socketFd = sock;
     }
 
-    /* ---------------------------------------------------------------- */
-
-    for (int i = 0; i < numMonitors; i++)
-        sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);      /* Send the input directory */
-
     /* --------------------------------------------------------------------------------------------*/
+
+    /* Send the input directory to each monitorServer */
+    for (int i = 0; i < numMonitors; i++)
+        sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);
+
 
     /* Read the bloom filters */
     fd_set readFdsSet;
-    string messageRead;
 
     FD_ZERO(&readFdsSet);
     for(int i = 0; i < numMonitors; i++){
@@ -249,6 +236,7 @@ int main(int argc, char *argv[]){
         
     }while(counterMonitor != numMonitors);
     
+    NumOfRequests req;      /* struct to count the requests */
 
     /* ------------------------------------------ User's commands ------------------------------------------ */
 
@@ -256,14 +244,11 @@ int main(int argc, char *argv[]){
 
     }while (!Commands(sizeOfBloom, numMonitors, socketBufferSize, monitorInfo, bloomListHead, &req));
 
-    //kill(getpid(), SIGINT);
-    cout << "Program completed successfully." << endl;
-
     /* Wait for each child to finish */
     for (int i = 0; i < numMonitors; i++)
         waitpid(monitorInfo[i].monitorId, NULL, 0);
     
-    /* Unlink the named pipes */
+    /* close the socket connections */
     for (int i = 0; i < numMonitors; i++){
         close(monitorInfo[i].socketFd);
     }
@@ -278,7 +263,8 @@ int main(int argc, char *argv[]){
     // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
     // logFile.close();                                                    /* Close the file */
-
+    
+    cout << "Program completed successfully." << endl;
     return 0;
 }
 
