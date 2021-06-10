@@ -154,8 +154,6 @@ int main(int argc, char *argv[]){
             monitorInfo[i/2].monitorId = pid;
         }
     }
-
-    cout << "ftanei edwwww \n";
        
     /* ------------------------------ SOCKETS ------------------------------ */
 

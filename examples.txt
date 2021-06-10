@@ -4,3 +4,6 @@
 /searchVaccinationStatus 1410
 
 /travelRequest 8926 5-9-2000 Afghanistan Albania Anaplasmosis
+
+
+/travelRequest 7358 25-8-1971 Paraguay Albania H1N1
