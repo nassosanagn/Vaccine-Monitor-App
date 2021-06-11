@@ -40,9 +40,10 @@ typedef struct {
     int count;
 } pool_t;
 
-int numOfFiles = 0;
-string* countries; 
+int numOfFiles = 0;         /* The total number of .txt files */
+
 string* txtFiles;
+string* countryTxtFiles;
 
 pthread_mutex_t mutex;
 pthread_mutex_t mutexRead;
@@ -56,6 +57,7 @@ void initialize(pool_t * pool, int cyclicBufferSize);
 void place(pool_t * pool, string data);
 string obtain(pool_t * pool);
 void * producer(void * ptr);
+void * producerForOneCountry(void * ptr);
 void * consumer(void * ptr);
 
 int main(int argc, char *argv[]){
@@ -139,63 +141,50 @@ int main(int argc, char *argv[]){
 
     int numOfCountries = 0;
 
-    /* count the countries */
-    while (ss2 >> country)
+    while (ss2 >> country)      /* count the countries */
         numOfCountries++;
     
-    countries = new string[numOfCountries];    
+    string* countries = new string[numOfCountries];    
 
     int i = 0;
-    while (ss >> country) 
+    while (ss >> country)                               /* create the paths */
         countries[i++] = inputDir + "/" + country;
        
-    struct dirent *counter;
-    DIR *countryDir;
+    struct dirent ** txtFilesList;
+  
+    for (int i = 0; i < numOfCountries; i++){                                   /* For every country file */
 
-    /* -------------------------------- threads -------------------------------- */
+        int currNumOfFiles = scandir(countries[i].c_str(), &txtFilesList, 0, alphasort);
 
-    for (int i = 0; i < numOfCountries; i++){           /* For each country (or each file) */
-
-        /* Open country directory */
-        countryDir = opendir(countries[i].c_str());
-        if (ENOENT == errno){
-            perror("Couldn't open country directory");
+        if (currNumOfFiles < 0){                        /* error occurred with scandir */
+            perror("Couldn't open directory");
             exit(EXIT_FAILURE);
         }
-    
-        while ((counter = readdir(countryDir)) != NULL){       /* For each .txt file inside CountryFileName */
-        
-            if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
-                continue;
-
-            numOfFiles++;
-        }
-        rewinddir(countryDir);
+        numOfFiles += currNumOfFiles - 2;
     }
-    closedir(countryDir);
 
     txtFiles = new string[numOfFiles];
-    int counter2 = 0;
+    int index = 0;
 
-    for (int i = 0; i < numOfCountries; i++){            /* For each country (or each file) */
+    for (int i = 0; i < numOfCountries; i++){     /* For every country file */
 
-        /* Open country directory */
-        countryDir = opendir(countries[i].c_str());
-        if (ENOENT == errno){
-            perror("Couldn't open country directory");
+        int currNumOfFiles = scandir(countries[i].c_str(), &txtFilesList, 0, alphasort);
+
+        if (currNumOfFiles < 0){                        /* error occurred with scandir */
+            perror("Couldn't open directory");
             exit(EXIT_FAILURE);
         }
-    
-        while ((counter = readdir(countryDir)) != NULL){       /* For each .txt file inside CountryFileName */
         
-            if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
+        for (int j = 0; j < currNumOfFiles; j++){           /* For every .txt file inside country file */
+
+            if ((!strcmp(txtFilesList[j]->d_name, ".") || !strcmp(txtFilesList[j]->d_name, ".."))) 
                 continue;
 
-            txtFiles[counter2++] = countries[i] + "/" + counter->d_name;
+           txtFiles[index++] = countries[i] + "/" + txtFilesList[j]->d_name;
         }
-        rewinddir(countryDir);
     }
-    closedir(countryDir);
+
+    /* -------------------------------- threads -------------------------------- */
 
     pthread_t consumers[numThreads];       /* array with the threads */
 
@@ -219,7 +208,7 @@ int main(int argc, char *argv[]){
        }
     }
     
-    /* ---------------------------------------------------------------- */
+    /* -------------------------------- end of threads --------------------------------- */
 
     int numOfViruses = VirusListCount(virusListHead);            /* Get the number of viruses (equals with the number of bloom filters) */
     sendInt(newSocket, numOfViruses);                         /* Send the number of viruses (equals with the number of bloom filters) */
@@ -253,7 +242,6 @@ int main(int argc, char *argv[]){
             
             if (foundFlag == 1){
 
-                cout << endl << "to brhka gia port: " << port << endl;
                 int age = tempCit->citizen.age;
                 string firstName = tempCit->citizen.firstName;
                 string lastName = tempCit->citizen.lastName;
@@ -279,9 +267,11 @@ int main(int argc, char *argv[]){
                         sendString(newSocket,(current->virusName).c_str(),socketBufferSize);
                         sendString(newSocket,dateStr.c_str(),socketBufferSize);
 
-                    }else{                                                      /* Not vaccinated => there is no date */
+                    }else if (current->NotVaccinated->SkipListSearch(citizenId,&cit)){                                                      /* Not vaccinated => there is no date */
                         sendString(newSocket, "NO", socketBufferSize);
                         sendString(newSocket,(current->virusName).c_str(),socketBufferSize);
+                    }else{
+                        sendString(newSocket, "CONTINUE", socketBufferSize);
                     }
                     current = current->next;        /* Go to the next virus */
                 }
@@ -316,22 +306,50 @@ int main(int argc, char *argv[]){
             struct dirent *counter;
             DIR *countryDir;
 
-            /* Open country directory */
-            countryDir = opendir(country.c_str());
+            struct dirent ** txtFilesList;
+            int numOfFiles2 = scandir(country.c_str(), &txtFilesList, 0, alphasort);
+            
+            countryTxtFiles = new string[numOfFiles2];
 
-            if (ENOENT == errno){
-                perror("Couldn't open country directory");
+            if (numOfFiles2 < 0){                        /* error occurred with scandir */
+                perror("Couldn't open directory");
                 exit(EXIT_FAILURE);
             }
 
-            while ((counter = readdir(countryDir)) != NULL){                     /* For each .txt file inside CountryFileName */
-            
-                if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
+            int countTxts = 0;
+            for (int j = 0; j < numOfFiles2; j++){           /* For every .txt file inside country file */
+
+                if ((!strcmp(txtFilesList[j]->d_name, ".") || !strcmp(txtFilesList[j]->d_name, ".."))) 
                     continue;
 
-                readFile(country + "/" + counter->d_name, sizeOfBloom, &citizenListHead, &virusListHead, &countryListHead);
+                countryTxtFiles[countTxts++] = country + "/" + txtFilesList[j]->d_name;
+                delete(txtFilesList[j]);
             }
-            rewinddir(countryDir);
+            delete(txtFilesList);
+
+            numOfFiles = countTxts;
+
+            pthread_t consumers[numThreads];       /* array with the threads */
+
+            initialize(&pool,cyclicBufferSize);
+            pthread_mutex_init(&mutex, 0);
+            pthread_mutex_init(&mutexRead, 0);
+
+            pthread_cond_init(&cond_nonempty, 0);
+            pthread_cond_init(&cond_nonfull, 0);
+
+            for (int i = 0; i < numThreads; i++){
+                pthread_create(&consumers[i], 0, consumer, 0);
+            }
+
+            producerForOneCountry(NULL);
+            
+            for (int i = 0; i < numThreads; i++){
+                if (pthread_join(consumers[i], NULL) != 0){
+                    perror("error waiting\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
 
             int numOfViruses = VirusListCount(virusListHead);
 
@@ -350,19 +368,16 @@ int main(int argc, char *argv[]){
 
         }else if (command.compare("/exit") == 0){
 
-            // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
-            // ofstream logFile;
-            // logFile.open(logFileStr);                                   /* Create and open the file */
+            string logFileStr = "log_file." + to_string(getpid()) + ".txt";
+            ofstream logFile;
+            logFile.open(logFileStr);                                   /* Create and open the file */
 
-            // CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
-            // logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
-            // logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
-            // logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
+            CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
+            logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
+            logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
+            logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
 
-            // logFile.close();
-            delete(countries);
-            delete(txtFiles);
-
+            logFile.close();
             close(newSocket);
             close(sock);
 
@@ -417,6 +432,16 @@ void * producer(void * ptr){
     int index = 0;
     while (numOfFiles > 0) {
         place(&pool, txtFiles[index++]);
+        numOfFiles--;
+        pthread_cond_signal(&cond_nonempty);
+    }
+    return NULL;
+}
+
+void * producerForOneCountry(void * ptr){
+    int index = 0;
+    while (numOfFiles > 0) {
+        place(&pool, countryTxtFiles[index++]);
         numOfFiles--;
         pthread_cond_signal(&cond_nonempty);
     }

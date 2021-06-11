@@ -87,6 +87,10 @@ string Date::convertDateToStr(){
 }
 
 bool Date::lessThan6Months(Date travelDate){
+
+    /* if travel date is before vaccination date */
+    if (this->compareDates(travelDate) > 0) 
+        return false;
       
     int year = travelDate.getYear() - this->year;
 
@@ -98,9 +102,8 @@ bool Date::lessThan6Months(Date travelDate){
 
             int day = travelDate.getDay() - this->day;
 
-            if (day < 0)
+            if (day <= 0)
                 return true;
-
             else  
                 return false;
 
@@ -111,11 +114,11 @@ bool Date::lessThan6Months(Date travelDate){
 
     }else if (year == 1){
 
-    int month = this->month;
+        int month = this->month;
 
-        for(int i = 0; i < 6; i++){
+        for (int i = 0; i < 6; i++){
             if (month == 12)
-            month = 0;
+                month = 0;
             month++;
         }
 
@@ -124,12 +127,12 @@ bool Date::lessThan6Months(Date travelDate){
         else if (travelDate.getMonth() > month)
             return false;
         else{
-            if((this->day - travelDate.getDay()) > 0)
+            if((this->day - travelDate.getDay()) >= 0)
                 return true;
             else
                 return false;
         }
 
     }else
-    return false;
+        return false;
 }

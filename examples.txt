@@ -1,7 +1,9 @@
-./travelMonitorClient -m 2 -b 100 -c 1000 -s 10000 -i ./countries -t 1
+./travelMonitorClient -m 5 -b 100 -c 1000 -s 10000 -i ./countries -t 4
 
-/travelRequest 1410 5-9-1976 Afghanistan Albania Rabies
-/searchVaccinationStatus 1410
+/travelRequest 1410 2-9-2000 Afghanistan Albania Rabies
+
+/searchVaccinationStatus 8120
+/addVaccinationRecords Afghanistan
 
 /travelRequest 8926 5-9-2000 Afghanistan Albania Anaplasmosis
 

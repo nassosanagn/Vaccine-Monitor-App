@@ -20,12 +20,9 @@
 #include <errno.h>
 #include <netdb.h> /* gethostbyaddr */
 
-#define PORT 9000
+#define PORT 9020
 
 using namespace std;
-
-struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
-struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
 
 int main(int argc, char *argv[]){
 
@@ -62,28 +59,17 @@ int main(int argc, char *argv[]){
            exit(EXIT_FAILURE);
         } 
     }
+ 
+    struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
+    struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
 
-    struct dirent *counter;
+    struct dirent **countryFiles;
+
     int numOfCountries = 0;
-
-    /* Open the input directory */
-    DIR *inputDIR = opendir(inputDir.c_str());
-    if (ENOENT == errno) {
-        perror("Couldn't open input directory");
-        exit(EXIT_FAILURE);
-    }
-
-    /* get the total number of countries */
-    while ((counter = readdir(inputDIR)) != NULL){    
-        
-        if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
-            continue;
-    
-        numOfCountries++;
-    }
-    rewinddir(inputDIR);
-    
     int countCountries = 0;
+
+    numOfCountries = scandir(inputDir.c_str(), &countryFiles, 0, alphasort);
+    numOfCountries = numOfCountries - 2;
 
     /* if countries are less than the number of monitors => then only fork numOfCountries monitorServers (one country per monitorServer) */
     if (numMonitors > numOfCountries){
@@ -92,26 +78,32 @@ int main(int argc, char *argv[]){
 
     Info monitorInfo[numMonitors];              /* Info array with socket fd, proccess id and a list of countries */
 
-    while ((counter = readdir(inputDIR)) != NULL){    
-        
-        if ((!strcmp(counter->d_name, ".") || !strcmp(counter->d_name, ".."))) 
-            continue;
-    
-        string directory = counter->d_name;
+    if (numOfCountries < 0){                        /* error occurred with scandir */
+        perror("Couldn't open input directory");
+        exit(EXIT_FAILURE);
+    }else{
+        for (int i = 0; i < numOfCountries; i++) {       /* for each country */
 
-        /* Create the list with the countries */
-        if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
-          CountryListPush(&countryListHead, directory);
+            if ((!strcmp(countryFiles[i]->d_name, ".") || !strcmp(countryFiles[i]->d_name, ".."))) 
+                continue;
+
+            string directory = countryFiles[i]->d_name;
+
+            /* Create the list with the countries */
+            if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
+                CountryListPush(&countryListHead, directory);
+            }
+
+            CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
+            countCountries++;
+
+            if (countCountries == numMonitors)
+                countCountries = 0;
+            
+            delete(countryFiles[i]);
+            }
         }
-
-        CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
-        countCountries++;
-
-        if (countCountries == numMonitors)
-            countCountries = 0;
-    }
-    rewinddir(inputDIR);
-    closedir(inputDIR);     /* close the input directory */
+    delete(countryFiles);
 
     int pid;
     for (int i = 0; i < 2 * numMonitors; i+=2){      /* fork() numMonitors child processes */
@@ -149,18 +141,18 @@ int main(int argc, char *argv[]){
         struct sockaddr_in serverAddr;
         string hostName;
         
-        struct hostent* h;
+        struct hostent* host;
 
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-            printf("\n Socket creation error \n");
-            return -1;
+            cout << "Socket creation error " << endl;
+            exit(EXIT_FAILURE);
         }
         
         gethostname(&hostName[0], 1023);
-        h = gethostbyname(&hostName[0]);
+        host = gethostbyname(&hostName[0]);
     
         memset(&serverAddr, '\0', sizeof(serverAddr));
-        memcpy(&serverAddr.sin_addr, h->h_addr, h->h_length);
+        memcpy(&serverAddr.sin_addr, host->h_addr, host->h_length);
 
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons((PORT+i));
@@ -172,12 +164,11 @@ int main(int argc, char *argv[]){
         monitorInfo[i].socketFd = sock;
     }
 
-    /* --------------------------------------------------------------------------------------------*/
+    /* ------------------------------ END OF SOCKETS ------------------------------ */
 
     /* Send the input directory to each monitorServer */
     for (int i = 0; i < numMonitors; i++)
         sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);
-
 
     /* Read the bloom filters */
     fd_set readFdsSet;
@@ -200,6 +191,7 @@ int main(int argc, char *argv[]){
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
 
+    /* Get all the bloom filters */
     do{
         select(maxfd + 1, &readFdsSet, nullptr, nullptr, &timeout);
 

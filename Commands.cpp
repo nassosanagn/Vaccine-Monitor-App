@@ -1,14 +1,14 @@
 #include "Commands.h"
 
-int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);         /* Command 1 */
-int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                               /* Command 2 */
-int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead);                    /* Command 3 */
-int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]);                                             /* Command 4 */                             
-int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead);                                                      /* Command 5 */   
+int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);      /* Command 1 */
+int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                                  /* Command 2 */
+int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead);                 /* Command 3 */
+int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]);                                          /* Command 4 */                             
+int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead);                                   /* Command 5 */   
 
 int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
 
-  string InputWords[12];
+  string InputWords[1024];
   string input, word;
   
   cout << endl << "Enter a command: ";
@@ -246,7 +246,7 @@ int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBuff
       string country = readString(monitorInfo[i].socketFd, socketBufferSize);
       int age = readInt(monitorInfo[i].socketFd);
 
-      cout << endl << firstName << " " << lastName << " " << country << endl;
+      cout << endl << citizenId << " " << firstName << " " << lastName << " " << country << endl;
       cout << "AGE " << age << endl;
   
       while(1){
@@ -256,7 +256,7 @@ int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBuff
         if (isVaccinated.compare("STOPPED") == 0)
           break;
         
-        if (isVaccinated.compare("YES") == 0){
+        if (isVaccinated.compare("YES") == 0){                                       /* If citizen is in Vaccinated Skip List */
 
           string virusName = readString(monitorInfo[i].socketFd, socketBufferSize);
           cout << virusName << " VACCINATED ON ";
@@ -266,7 +266,7 @@ int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBuff
           vaccinationDate.printDate();
           cout << endl;
 
-        }else{
+        }else if (isVaccinated.compare("NO") == 0){                                     /* If citizen is in NotVaccinated Skip List */
           string virusName = readString(monitorInfo[i].socketFd, socketBufferSize);
           cout << virusName << " NOT YET VACCINATED" << endl;
         }
