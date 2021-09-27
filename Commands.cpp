@@ -2,11 +2,11 @@
 
 int travelRequest(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);      /* Command 1 */
 int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomNode* bloomListHead);                                                  /* Command 2 */
-int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead);                 /* Command 3 */
+int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead, string inputDir);                 /* Command 3 */
 int searchVaccinationStatus(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[]);                                          /* Command 4 */                             
 int exit(string InputWords[], int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead);                                   /* Command 5 */   
 
-int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req){
+int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req, string inputDir){
 
   string InputWords[1024];
   string input, word;
@@ -32,7 +32,7 @@ int Commands(int bloomSize, int numMonitors, int socketBufferSize, Info monitorI
 
   }else if (InputWords[0].compare("/addVaccinationRecords") == 0){            /* Command 3 - /addVaccinationRecords country */
 
-    addVaccinationRecords(InputWords,numMonitors,socketBufferSize,monitorInfo,bloomListHead);
+    addVaccinationRecords(InputWords,numMonitors,socketBufferSize,monitorInfo,bloomListHead, inputDir);
 
   }else if (InputWords[0].compare("/searchVaccinationStatus") == 0){          /* Command 4 - /searchVaccinationStatus citizenID */
 
@@ -177,7 +177,7 @@ int travelStats(string InputWords[], int numMonitors, Info monitorInfo[], BloomN
   return 1;
 }
 /* Command 3 - /addVaccinationRecords country */
-int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead){ 
+int addVaccinationRecords(string InputWords[], int numMonitors, int socketBufferSize , Info monitorInfo[], BloomNode* bloomListHead, string inputDir){ 
 
   if ((InputWords[1].compare("\0") == 0) || (InputWords[2].compare("\0") != 0)){    /* There must be exactly 2 arguments */
     cout << "ERROR in command /addVaccinationRecords" << endl;
@@ -194,7 +194,8 @@ int addVaccinationRecords(string InputWords[], int numMonitors, int socketBuffer
       foundFlag = 1;
 
       sendString(monitorInfo[i].socketFd, "/addVaccinationRecords", socketBufferSize);    
-      sendString(monitorInfo[i].socketFd, country.c_str(),socketBufferSize);     /* Send county's name to monitor */
+      sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);
+      sendString(monitorInfo[i].socketFd, country.c_str(), socketBufferSize);     /* Send county's name to monitor */
 
       int numOfViruses = readInt(monitorInfo[i].socketFd);              /* Get the number of viruses (equals with the number of bloom filters) */
       int sizeOfBloom = bloomListHead->bloomFilter->getBloomSize();

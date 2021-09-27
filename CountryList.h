@@ -41,7 +41,7 @@ int CountryListCount(CountryNode* head);
 /* Delete all nodes in the list */
 void CountryDeleteList(CountryNode** head);
 
-string getAllCountries(CountryNode* head);
+string getAllCountries(CountryNode* head, string inputDir);
 
 
 #endif /* COUNTRY_LIST_H_ */

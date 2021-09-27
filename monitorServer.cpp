@@ -1,27 +1,11 @@
 #include <iostream>
-#include <string>
-#include <sstream>
-#include <cstring>
 
 #include "ReadFile.h"
 #include "SocketFunctions.h"
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <errno.h>
 #include <fstream>
-
-#include <stdio.h>
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <netdb.h>
-#include <pthread.h>
 
 using namespace std;
 
@@ -42,7 +26,7 @@ typedef struct {
 
 int numOfFiles = 0;         /* The total number of .txt files */
 
-string* txtFiles;
+string* txtFilePaths;
 string* countryTxtFiles;
 
 pthread_mutex_t mutex;
@@ -56,7 +40,7 @@ pool_t pool;
 void initialize(pool_t * pool, int cyclicBufferSize);
 void place(pool_t * pool, string data);
 string obtain(pool_t * pool);
-void * producer(void * ptr);
+void * producer(void * ptr);                                /* Used for the command "/addVaccinationRecords" */
 void * producerForOneCountry(void * ptr);
 void * consumer(void * ptr);
 
@@ -133,54 +117,55 @@ int main(int argc, char *argv[]){
 
     /* ------------------------------ END OF SOCKETS ------------------------------ */
 
-    string inputDir = readString(newSocket,socketBufferSize);            /* Get the name of the inputDir from travelMonitor */
-
     stringstream ss(allCountries);
     stringstream ss2(allCountries);
     string country;
 
     int numOfCountries = 0;
 
-    while (ss2 >> country)      /* count the countries */
+    /* count the countryPaths */
+    while (ss2 >> country)
         numOfCountries++;
     
-    string* countries = new string[numOfCountries];    
+    string countryPaths[numOfCountries];
 
     int i = 0;
     while (ss >> country)                               /* create the paths */
-        countries[i++] = inputDir + "/" + country;
+        countryPaths[i++] = country;
        
     struct dirent ** txtFilesList;
-  
-    for (int i = 0; i < numOfCountries; i++){                                   /* For every country file */
+    
+    /* Count the all the record files (txts) */
+    for (int i = 0; i < numOfCountries; i++){    /* For every country file */
 
-        int currNumOfFiles = scandir(countries[i].c_str(), &txtFilesList, 0, alphasort);
+        int currNumOfFiles = scandir(countryPaths[i].c_str(), &txtFilesList, 0, alphasort);
 
-        if (currNumOfFiles < 0){                        /* error occurred with scandir */
+        if (currNumOfFiles < 0){                /* error occurred with scandir */
             perror("Couldn't open directory");
             exit(EXIT_FAILURE);
         }
-        numOfFiles += currNumOfFiles - 2;
+        numOfFiles += currNumOfFiles - 2;     /* ignore the current "." and the previous directory ".." */
     }
 
-    txtFiles = new string[numOfFiles];
+    txtFilePaths = new string[numOfFiles];
     int index = 0;
 
-    for (int i = 0; i < numOfCountries; i++){     /* For every country file */
+    for (int i = 0; i < numOfCountries; i++){       /* For every country file */
 
-        int currNumOfFiles = scandir(countries[i].c_str(), &txtFilesList, 0, alphasort);
+        int currNumOfFiles = scandir(countryPaths[i].c_str(), &txtFilesList, 0, alphasort);
 
         if (currNumOfFiles < 0){                        /* error occurred with scandir */
             perror("Couldn't open directory");
             exit(EXIT_FAILURE);
         }
         
-        for (int j = 0; j < currNumOfFiles; j++){           /* For every .txt file inside country file */
+        for (int j = 0; j < currNumOfFiles; j++){           /* For every .txt file inside country file => add it in the array with the txtFiles */
 
             if ((!strcmp(txtFilesList[j]->d_name, ".") || !strcmp(txtFilesList[j]->d_name, ".."))) 
                 continue;
 
-           txtFiles[index++] = countries[i] + "/" + txtFilesList[j]->d_name;
+            txtFilePaths[index++] = countryPaths[i] + "/" + txtFilesList[j]->d_name;
+            delete(txtFilesList[j]);
         }
     }
 
@@ -210,12 +195,11 @@ int main(int argc, char *argv[]){
     
     /* -------------------------------- end of threads --------------------------------- */
 
-    int numOfViruses = VirusListCount(virusListHead);            /* Get the number of viruses (equals with the number of bloom filters) */
+    int numOfViruses = VirusListCount(virusListHead);         /* Get the number of viruses (equals with the number of bloom filters) */
     sendInt(newSocket, numOfViruses);                         /* Send the number of viruses (equals with the number of bloom filters) */
 
     /* Send back to parent proccess (travelMonitor) numofViruses bloom filters (one bloom filter per virus) */
     for (int i = 0; i < numOfViruses; i++){
-
         string virusName = VirusListGetVirusName(virusListHead,i);
         sendString(newSocket,virusName.c_str(), socketBufferSize);                                                /* Send the virus name */
         sendBloom(newSocket, VirusGetBloomArray(virusListHead,virusName), sizeOfBloom, socketBufferSize);            /* Send the bloom filter */
@@ -302,12 +286,14 @@ int main(int argc, char *argv[]){
 
         }else if (command.compare("/addVaccinationRecords") == 0){
 
+            string inputDir = readString(newSocket,socketBufferSize);            /* Get the name of the inputDir from travelMonitor */
             string country = inputDir + "/" + readString(newSocket, socketBufferSize);
+
             struct dirent *counter;
             DIR *countryDir;
 
-            struct dirent ** txtFilesList;
-            int numOfFiles2 = scandir(country.c_str(), &txtFilesList, 0, alphasort);
+            struct dirent ** txtFilesList2;
+            int numOfFiles2 = scandir(country.c_str(), &txtFilesList2, 0, alphasort);
             
             countryTxtFiles = new string[numOfFiles2];
 
@@ -319,13 +305,13 @@ int main(int argc, char *argv[]){
             int countTxts = 0;
             for (int j = 0; j < numOfFiles2; j++){           /* For every .txt file inside country file */
 
-                if ((!strcmp(txtFilesList[j]->d_name, ".") || !strcmp(txtFilesList[j]->d_name, ".."))) 
+                if ((!strcmp(txtFilesList2[j]->d_name, ".") || !strcmp(txtFilesList2[j]->d_name, ".."))) 
                     continue;
 
-                countryTxtFiles[countTxts++] = country + "/" + txtFilesList[j]->d_name;
-                delete(txtFilesList[j]);
+                countryTxtFiles[countTxts++] = country + "/" + txtFilesList2[j]->d_name;
+                delete(txtFilesList2[j]);
             }
-            delete(txtFilesList);
+            delete(txtFilesList2);
 
             numOfFiles = countTxts;
 
@@ -372,12 +358,13 @@ int main(int argc, char *argv[]){
             ofstream logFile;
             logFile.open(logFileStr);                                   /* Create and open the file */
 
-            CountryListPrintInFile(countryListHead,logFile);            /* Print all the countries in the logFile */
+            CountryListPrintInFile(countryListHead,logFile);            /* Print all the countryPaths in the logFile */
             logFile << "TOTAL TRAVEL REQUESTS " << totalReq << endl;    /* Print total travel requests in the logfile */
             logFile << "ACCEPTED " << acceptedReq << endl;              /* Print accepted requests in the logfile */
             logFile << "REJECTED " << rejectedReq << endl;              /* Print rejected requests in the logfile */
 
             logFile.close();
+
             close(newSocket);
             close(sock);
 
@@ -390,7 +377,6 @@ int main(int argc, char *argv[]){
     }
     return 0;
 }
-
 
 /* ---------------------------------------------------------------- */
 
@@ -431,7 +417,7 @@ string obtain(pool_t * pool) {
 void * producer(void * ptr){
     int index = 0;
     while (numOfFiles > 0) {
-        place(&pool, txtFiles[index++]);
+        place(&pool, txtFilePaths[index++]);
         numOfFiles--;
         pthread_cond_signal(&cond_nonempty);
     }

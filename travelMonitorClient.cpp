@@ -1,24 +1,14 @@
 #include <iostream>
-#include <string>
 #include <sstream>
-#include <cstring>
 
 #include "BloomFilter.h"
 #include "CountryList.h"
 #include "bloomList.h"
 #include "Commands.h"
 
-#include <pthread.h>
-#include <stdio.h>
 #include <fstream>
 #include <dirent.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <errno.h>
-#include <netdb.h> /* gethostbyaddr */
 
 #define PORT 9020
 
@@ -36,22 +26,22 @@ int main(int argc, char *argv[]){
     
     for (int i = 1; i < argc; i+=2){           /* Get all the arguments */
 
-        if (strcmp(argv[i],"-m") == 0)              /* Get the number of monitors */
+        if (strcmp(argv[i],"-m") == 0)           /* Get the number of monitors */
             numMonitors = stoi(argv[i+1]);
         
-        else if (strcmp(argv[i],"-b") == 0)               /* Get the size of the socketBuffer */
+        else if (strcmp(argv[i],"-b") == 0)         /* Get the size of the socketBuffer */
             socketBufferSize = stoi(argv[i+1]);
         
-        else if (strcmp(argv[i],"-c") == 0)                   /* Get the size of the CyclicBuffer */
+        else if (strcmp(argv[i],"-c") == 0)         /* Get the size of the CyclicBuffer */
             cyclicBufferSize = stoi(argv[i+1]);
 
-        else if (strcmp(argv[i],"-s") == 0)                   /* Get the size of the bloom */
+        else if (strcmp(argv[i],"-s") == 0)         /* Get the size of the bloom */
             sizeOfBloom = stoi(argv[i+1]);
 
-        else if (strcmp(argv[i],"-i") == 0)                   /* Get the input directory */
+        else if (strcmp(argv[i],"-i") == 0)          /* Get the input directory */
             inputDir = argv[i+1];
         
-        else if (strcmp(argv[i],"-t") == 0)                   /* Get the number of Threads */
+        else if (strcmp(argv[i],"-t") == 0)         /* Get the number of Threads */
             numThreads = stoi(argv[i+1]);
     
         else{
@@ -60,16 +50,15 @@ int main(int argc, char *argv[]){
         } 
     }
  
-    struct BloomNode* bloomListHead = NULL;        /* List with a bloom filter for each virus */
-    struct CountryNode* countryListHead = NULL;                /* One list with all the countries */
-
+    struct BloomNode* bloomListHead = NULL;              /* List with a bloom filter for each virus */
+    struct CountryNode* countryListHead = NULL;          /* One list with all the countries */
+    
     struct dirent **countryFiles;
-
     int numOfCountries = 0;
     int countCountries = 0;
 
     numOfCountries = scandir(inputDir.c_str(), &countryFiles, 0, alphasort);
-    numOfCountries = numOfCountries - 2;
+    numOfCountries = numOfCountries - 2;                                            /* ignore the current "." and the previous directory ".." */
 
     /* if countries are less than the number of monitors => then only fork numOfCountries monitorServers (one country per monitorServer) */
     if (numMonitors > numOfCountries){
@@ -110,7 +99,7 @@ int main(int argc, char *argv[]){
 
         if ((pid = fork()) == 0){
             
-            string allCountries = getAllCountries(monitorInfo[i/2].countryListHead);
+            string allCountries = getAllCountries(monitorInfo[i/2].countryListHead, inputDir);
 
             string tempPort = to_string((PORT + i/2));
             string tempNumThreads = to_string(numThreads);
@@ -157,6 +146,7 @@ int main(int argc, char *argv[]){
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons((PORT+i));
 
+        /* wait until the socket connects on the other side (monitorServer) */
         do
             connectStatus = connect(sock, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
         while (connectStatus < 0);
@@ -165,10 +155,6 @@ int main(int argc, char *argv[]){
     }
 
     /* ------------------------------ END OF SOCKETS ------------------------------ */
-
-    /* Send the input directory to each monitorServer */
-    for (int i = 0; i < numMonitors; i++)
-        sendString(monitorInfo[i].socketFd, inputDir.c_str(), socketBufferSize);
 
     /* Read the bloom filters */
     fd_set readFdsSet;
@@ -191,7 +177,7 @@ int main(int argc, char *argv[]){
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
 
-    /* Get all the bloom filters */
+    /* Get all the bloom filters from the monitorServers (using select) */
     do{
         select(maxfd + 1, &readFdsSet, nullptr, nullptr, &timeout);
 
@@ -223,14 +209,14 @@ int main(int argc, char *argv[]){
         }
         
     }while(counterMonitor != numMonitors);
-    
+        
     NumOfRequests req;      /* struct to count the requests */
 
     /* ------------------------------------------ User's commands ------------------------------------------ */
 
     do{   /* Display the menu with the user commands */
 
-    }while (!Commands(sizeOfBloom, numMonitors, socketBufferSize, monitorInfo, bloomListHead, &req));
+    }while (!Commands(sizeOfBloom, numMonitors, socketBufferSize, monitorInfo, bloomListHead, &req, inputDir));
 
     /* Wait for each child to finish */
     for (int i = 0; i < numMonitors; i++)
@@ -241,18 +227,19 @@ int main(int argc, char *argv[]){
         close(monitorInfo[i].socketFd);
     }
 
-    // string logFileStr = "log_file." + to_string(getpid()) + ".txt";
-    // ofstream logFile;
-    // logFile.open(logFileStr);                                           /* Create and open the file */
+    /* Create the log_file txt */
+    string logFileStr = "log_file." + to_string(getpid()) + ".txt";
+    ofstream logFile;
+    logFile.open(logFileStr);                                           /* Create and open the file */
 
-    // CountryListPrintInFile(countryListHead,logFile);                    /* Print all the countries in the logFile */
-    // logFile << "TOTAL TRAVEL REQUESTS " << req.totalReq << endl;        /* Print total travel requests in the logfile */
-    // logFile << "ACCEPTED " << req.acceptedReq << endl;                  /* Print accepted requests in the logfile */
-    // logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
+    CountryListPrintInFile(countryListHead,logFile);                    /* Print all the countries in the logFile */
+    logFile << "TOTAL TRAVEL REQUESTS " << req.totalReq << endl;        /* Print total travel requests in the logfile */
+    logFile << "ACCEPTED " << req.acceptedReq << endl;                  /* Print accepted requests in the logfile */
+    logFile << "REJECTED " << req.rejectedReq << endl;                  /* Print rejected requests in the logfile */
 
-    // logFile.close();                                                    /* Close the file */
+    logFile.close();                                                    /* Close the file */
 
+    CountryDeleteList(&countryListHead);            /* Delete the country list */
     cout << "Program completed successfully." << endl;
     return 0;
 }
-

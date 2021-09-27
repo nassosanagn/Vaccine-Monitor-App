@@ -1,11 +1,14 @@
-./travelMonitorClient -m 5 -b 100 -c 1000 -s 10000 -i ./countries -t 4
+./travelMonitorClient -m 5 -b 100 -c 10 -s 10000 -i ./countries -t 4
 
-/travelRequest 1410 2-9-2000 Afghanistan Albania Rabies
+/travelRequest 1410 2-11-1976 Afghanistan Albania Rabies
 
-/searchVaccinationStatus 8120
-/addVaccinationRecords Afghanistan
+/searchVaccinationStatus 1960
+/addVaccinationRecords Belgium
 
 /travelRequest 8926 5-9-2000 Afghanistan Albania Anaplasmosis
 
-
 /travelRequest 7358 25-8-1971 Paraguay Albania Anaplasmosis
+
+/travelRequest 1410 2-5-1976 Afghanistan Albania Rabies
+
+/travelStats Rabies 2-1-1976 12-12-1976

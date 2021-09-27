@@ -18,8 +18,6 @@
 
 typedef struct{
     pid_t monitorId;
-    // int readFd;
-    // int writeFd;
     int socketFd;
     CountryNode* countryListHead = NULL;
 }Info;
@@ -30,6 +28,6 @@ typedef struct{
     int rejectedReq = 0;
 }NumOfRequests;
 
-int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req);
+int Commands(int bloomSize, int numMonitors, int bufferSize, Info monitorInfo[], BloomNode* bloomListHead, NumOfRequests* req, string inputDir);
 
 #endif /* COMMANDS_H_ */

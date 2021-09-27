@@ -88,14 +88,13 @@ void CountryDeleteList(CountryNode** head){
     } 
 }
 
-string getAllCountries(CountryNode* head){
+string getAllCountries(CountryNode* head, string inputDir){
 
     CountryNode* current = head;  
     string allCountries = "";
     
     while (current != NULL) {  
-
-        allCountries = allCountries + " " + current->country;
+        allCountries = allCountries + inputDir + "/" + current->country + " ";
         current = current->next;  
     }  
 
