@@ -29,20 +29,20 @@ The **virusesFile.txt**, located in the info directory, contains a list of 20 di
 This bash script reads the inputFile.txt and creates a directory that contains subdirectories, one for each country name that exists in the inputFile. In each subdirectory, there are  **numFilesPerDirectory** files with names **country-n.txt**, where n is a positive integer. 
 
 ### Create the input directory:
-    $ bash ./script_2/create_infiles.sh info/inputFile.txt inputDir numFilesPerDirectory
+    bash ./script_2/create_infiles.sh info/inputFile.txt inputDir numFilesPerDirectory
 
 <!-- Vaccine Monitor Section -->
 
 ## Vaccine Monitor App:
 
 ### Compile the project:
-    $ make
+    make
 
 ### Delete the objective files:
-    $ make clean
+    make clean
 
 ### Run the program:
-    $ ./travelMonitorClient -m 10 -b 50 -c 40 -s 100000 -i ./countries -t 4
+    ./travelMonitorClient -m 10 -b 50 -c 40 -s 100000 -i ./countries -t 4
 
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
