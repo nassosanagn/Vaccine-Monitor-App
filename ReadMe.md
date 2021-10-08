@@ -31,4 +31,16 @@ This bash script reads the inputFile.txt and creates a directory that contains s
 ### Create the input directory:
     bash ./script_2/create_infiles.sh info/inputFile.txt inputDir numFilesPerDirectory
 
+## Vaccine Monitor Application:
+
+### Compile the project:
+    make
+
+### Delete the objective files:
+    make clean
+
+### Run the program:
+    ./travelMonitorClient -m 10 -b 50 -c 40 -s 100000 -i ./countries -t 4
+
+
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
