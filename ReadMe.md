@@ -48,10 +48,8 @@ This bash script reads the inputFile.txt and creates a directory that contains s
 
 ### Compile the project:
     make
-
 ### Delete the objective files:
     make clean
-
 ### Run the program:
     ./travelMonitorClient –m numMonitors -b socketBufferSize -c cyclicBufferSize -s sizeOfBloom -i input_dir -t numThreads
 
