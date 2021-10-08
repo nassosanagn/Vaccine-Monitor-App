@@ -22,8 +22,7 @@ This "inputFile.txt" will be used later as an input to the second bash script, c
 
 Where **numLines** equals with the number of lines (records) that will be in the "inputFile.txt" and **duplicatesOn** = 1 if duplicate citizenIDs are allowed, or 0 if citizenIDs are unique.
 
-The virusesFile.txt, located in the info directory, contains a list of 20 different viruses that can be modified as you wish.
-Also, the countriesFile.txt, located in the info directory, contains a list of 20 different countries that can be modified as you wish.
+The **virusesFile.txt**, located in the info directory, contains a list of 20 different viruses that can be modified as you wish. Same way with the **countriesFile.txt**.
 
 ## Bash script: create_infiles.sh
 
