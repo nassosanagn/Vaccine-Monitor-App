@@ -4,7 +4,7 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
-## Implementation
+## Implementation & Use
 
 This project is based of the concept of one client (**travelMonitorClient**) and multiple servers (**monitorServers**).
 
