@@ -4,7 +4,7 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
-### Create the input directory
-
+### Create the input directory:
+    install this
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
