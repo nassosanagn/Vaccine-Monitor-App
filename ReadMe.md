@@ -45,11 +45,13 @@ This bash script reads the inputFile.txt and creates a directory that contains s
     ./travelMonitorClient –m numMonitors -b socketBufferSize -c cyclicBufferSize -s sizeOfBloom -i input_dir -t numThreads
 
 
+|                   |             |
+| ----------------- | ----------- |
 | numMonitors       | Title       |
 | socketBufferSize  | Text        |
 | cyclicBufferSize  | Text        |
 | sizeOfBloom       | Text        |
-| input_dir       | Text        |
-| numThreads       | Text        |
+| input_dir         | Text        |
+| numThreads        | Text        |
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
