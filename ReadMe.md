@@ -6,7 +6,7 @@ This is my implementation of a Vaccine Monitor app created for the System Progra
 
 ## Bash script: testFile.sh
 
-This bash script creates a test input file, that will be located in the "info" folder, called "inputFile.txt".
+This bash script creates a test input file, that will be located in the "info" directory, called "inputFile.txt".
 
 The input file will contain a number of citizen vaccination records about different viruses, in the following order:
 `citizenId firstName lastName country age virusName isVaccinated dateVaccinated`
