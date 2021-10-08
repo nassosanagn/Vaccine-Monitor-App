@@ -60,6 +60,11 @@ int main(int argc, char *argv[]){
     numOfCountries = scandir(inputDir.c_str(), &countryFiles, 0, alphasort);
     numOfCountries = numOfCountries - 2;                                            /* ignore the current "." and the previous directory ".." */
 
+    if (numOfCountries < 0){                        /* error occurred with scandir */
+        perror("Couldn't open input directory");
+        exit(EXIT_FAILURE);
+    }
+    
     /* if countries are less than the number of monitors => then only fork numOfCountries monitorServers (one country per monitorServer) */
     if (numMonitors > numOfCountries){
         numMonitors = numOfCountries;
@@ -67,31 +72,28 @@ int main(int argc, char *argv[]){
 
     Info monitorInfo[numMonitors];              /* Info array with socket fd, proccess id and a list of countries */
 
-    if (numOfCountries < 0){                        /* error occurred with scandir */
-        perror("Couldn't open input directory");
-        exit(EXIT_FAILURE);
-    }else{
-        for (int i = 0; i < numOfCountries; i++) {       /* for each country */
+    
+    for (int i = 0; i < numOfCountries; i++) {       /* for each country */
 
-            if ((!strcmp(countryFiles[i]->d_name, ".") || !strcmp(countryFiles[i]->d_name, ".."))) 
-                continue;
+        if ((!strcmp(countryFiles[i]->d_name, ".") || !strcmp(countryFiles[i]->d_name, ".."))) 
+            continue;
 
-            string directory = countryFiles[i]->d_name;
+        string directory = countryFiles[i]->d_name;
 
-            /* Create the list with the countries */
-            if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
-                CountryListPush(&countryListHead, directory);
-            }
-
-            CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
-            countCountries++;
-
-            if (countCountries == numMonitors)
-                countCountries = 0;
-            
-            delete(countryFiles[i]);
-            }
+        /* Create the list with the countries */
+        if (!(CountryListSearch(countryListHead, directory))){     /* If country is not already in the list => add it (in the beginning) */
+            CountryListPush(&countryListHead, directory);
         }
+
+        CountryListPush(&(monitorInfo[countCountries].countryListHead), directory);
+        countCountries++;
+
+        if (countCountries == numMonitors)
+            countCountries = 0;
+        
+        delete(countryFiles[i]);
+    }
+        
     delete(countryFiles);
 
     int pid;
