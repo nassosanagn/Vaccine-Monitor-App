@@ -47,11 +47,11 @@ This bash script reads the inputFile.txt and creates a directory that contains s
 
 |                   |             |
 | ----------------- | ----------- |
-| numMonitors       | Title       |
-| socketBufferSize  | Text        |
-| cyclicBufferSize  | Text        |
-| sizeOfBloom       | Text        |
-| input_dir         | Text        |
-| numThreads        | Text        |
+| numMonitors       | The number of monitorServer processes that will be created   |
+| socketBufferSize  | The size of the buffer (in bytes), used to read from sockets |
+| cyclicBufferSize  | The size of monitorServer's cyclic buffer (in entries)       |
+| sizeOfBloom       | The size of the bloom filters (in bytes)                     |
+| input_dir         | The directory created from the create_infiles.sh bash script |
+| numThreads        | The number of threads in each monitorServer                  |
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
