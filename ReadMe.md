@@ -17,7 +17,7 @@ For example, <br/>
 
 This "inputFile.txt" will be used later as an input to the second bash script, called "create_infiles.sh".
 
-#### Create the input file:
+### Create the input file:
     bash ./script_1/testFile.sh info/virusesFile.txt info/countriesFile.txt numLines duplicatesOn
 
 Where **numLines** equals with the number of lines (records) that will be in the "inputFile.txt" and **duplicatesOn** = 1 if duplicate citizenIDs are allowed, or 0 if citizenIDs are unique.
