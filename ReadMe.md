@@ -4,6 +4,19 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
+## Bash script: testFile.sh
+
+This bash script creates a test input file, that will be located in the "info" folder, called "inputFile.txt".
+
+The input file will contain a number of citizen vaccination records about different viruses, in the following order:
+    citizenId firstName lastName country age virusName isVaccinated dateVaccinated
+
+For example,
+    125 Jon Dupont USA 76 H1N1 YES 30-10-2020
+    889 John Papadopoulos Greece 52 Η1Ν1 ΝΟ
+
+This "inputFile.txt" will be used as an input to the the second bash script, called create_infiles.sh.
+
 ### Create the input file:
     bash ./script_1/testFile.sh info/virusesFile.txt info/countriesFile.txt numLines duplicatesOn
 
