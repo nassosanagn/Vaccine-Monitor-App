@@ -8,10 +8,12 @@ This is my implementation of a Vaccine Monitor app created for the System Progra
 
 This project is based of the concept of one client (**travelMonitorClient**) and multiple servers (**monitorServers**).
 
-This project is implemented using sockets for the communication between the parent process with the child processes.
-
 The parent process (**travelMonitorCliend**) receives requests from citizens, who want to travel to other countries. The app then checks if the citizen has received the request
 appropriate vaccination needed to enter the country and if the answer is yes, then it proceeds to accept the citizen's request to enter the country. 
+
+This project is implemented using sockets for the communication between the parent process with the child processes.
+
+Also, it uses threads to read the data files from the input directory.
 
 ## Bash script: testFile.sh
 
