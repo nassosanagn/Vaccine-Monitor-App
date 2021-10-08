@@ -31,7 +31,9 @@ This bash script reads the inputFile.txt and creates a directory that contains s
 ### Create the input directory:
     bash ./script_2/create_infiles.sh info/inputFile.txt inputDir numFilesPerDirectory
 
-## Vaccine Monitor Application:
+<!-- Vaccine Monitor Section -->
+
+## Vaccine Monitor App:
 
 ### Compile the project:
     make
