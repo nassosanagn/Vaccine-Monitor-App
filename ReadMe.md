@@ -4,7 +4,7 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
-### Create the input directory:
+### Create the input file:
     ./script_1/testFile.sh script_1/virusesFile.txt script_1/countriesFile.txt numLines duplicatesOn
 
 Where **numLines** equals with the number of lines (records) that will be in the "inputFile.txt" and **duplicatesOn** = 1 if duplicate citizenIDs are allowed, or 0 if citizenIDs are unique.
