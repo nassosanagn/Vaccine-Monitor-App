@@ -45,8 +45,6 @@ This bash script reads the inputFile.txt and creates a directory that contains s
     ./travelMonitorClient –m numMonitors -b socketBufferSize -c cyclicBufferSize -s sizeOfBloom -i input_dir -t numThreads
 
 
-| Syntax            | Description |
-| ----------------- | ----------- |
 | numMonitors       | Title       |
 | socketBufferSize  | Text        |
 | cyclicBufferSize  | Text        |
