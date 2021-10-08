@@ -7,7 +7,7 @@ This is my implementation of a Vaccine Monitor app created for the System Progra
 ### Create the input directory:
     ./script_1/testFile.sh script_1/virusesFile.txt script_1/countriesFile.txt numLines duplicatesOn
 
-Where, numLines equals with the number of lines (records) that will be in the "inputFile.txt" and duplicatesAllowed = 1 if duplicate citizenIDs are allowed, or 0 if citizenIDs are unique.
+Where **numLines** equals with the number of lines (records) that will be in the "inputFile.txt" and **duplicatesOn** = 1 if duplicate citizenIDs are allowed, or 0 if citizenIDs are unique.
 
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
