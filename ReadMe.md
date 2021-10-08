@@ -29,6 +29,6 @@ The **virusesFile.txt**, located in the info directory, contains a list of 20 di
 This bash script reads the inputFile.txt and creates a directory that contains subdirectories, one for each country name that exists in the inputFile. In each subdirectory, there are  **numFilesPerDirectory** files with names **country-n.txt**, where n is a positive integer. 
 
 ### Create the input directory:
-    bash ./create_infiles.sh inputFile input_dir numFilesPerDirectory
+    bash ./script_2/create_infiles.sh info/inputFile.txt inputDir numFilesPerDirectory
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
