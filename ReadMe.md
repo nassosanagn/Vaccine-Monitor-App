@@ -4,7 +4,9 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
-This project is implemented using sockets for the communication between the parent process (travelMonitorClient) with the child processes (monitorServers).
+This project is based of the concept of one client (**travelMonitorClient**) and multiple servers (**monitorServers**).
+
+This project is implemented using sockets for the communication between the parent process with the child processes.
 
 ## Bash script: testFile.sh
 
