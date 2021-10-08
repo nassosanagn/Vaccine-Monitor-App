@@ -12,7 +12,7 @@ The input file will contain a number of citizen vaccination records about differ
     citizenId firstName lastName country age virusName isVaccinated dateVaccinated
 
 For example, <br/>
-    `125 Jon Dupont USA 76 H1N1 YES 30-10-2020`<br/>
+    ``125 Jason Dupont USA 76 H1N1 YES 30-10-2020``<br/>
     `889 John Papadopoulos Greece 52 Η1Ν1 ΝΟ`
 
 This "inputFile.txt" will be used as an input to the the second bash script, called create_infiles.sh.
