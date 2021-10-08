@@ -4,6 +4,8 @@
 <br/>
 This is my implementation of a Vaccine Monitor app created for the System Programming K24 course at the University of Athens.
 
+This project is implemented using sockets for the communication between the parent process (travelMonitorClient) with the child processes (monitorServers).
+
 ## Bash script: testFile.sh
 
 This bash script creates a test input file, that will be located in the "info" directory, called "inputFile.txt".
