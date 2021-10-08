@@ -26,9 +26,9 @@ The **virusesFile.txt**, located in the info directory, contains a list of 20 di
 
 ## Bash script: create_infiles.sh
 
-This bash script creates a test input file, that will be located in the "info" directory, called "inputFile.txt".
+This bash script reads the inputFile.txt and creates a directory that contains subdirectories, one for each country name that exists in the inputFile. In each subdirectory, there are  **numFilesPerDirectory** files with names **country-n.txt**, where n is a positive integer. 
 
-The input file will contain a number of citizen vaccination records about different viruses, in the following order:
-`citizenId firstName lastName country age virusName isVaccinated dateVaccinated`
+### Create the input directory:
+    bash ./create_infiles.sh inputFile input_dir numFilesPerDirectory
 
 <!-- ![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) -->
