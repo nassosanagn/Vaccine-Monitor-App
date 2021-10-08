@@ -48,7 +48,7 @@ This bash script reads the inputFile.txt and creates a directory that contains s
 |                   |                                                              |
 | ----------------- | ------------------------------------------------------------ |
 | numMonitors       | The number of monitorServer processes that will be created   |
-| socketBufferSize  | The size of the buffer (in bytes), used to read from sockets |
+| socketBufferSize  | The size of the buffer (in bytes), used to read from the sockets |
 | cyclicBufferSize  | The size of monitorServer's cyclic buffer (in entries)       |
 | sizeOfBloom       | The size of the bloom filters (in bytes)                     |
 | input_dir         | The directory created from the create_infiles.sh bash script |
